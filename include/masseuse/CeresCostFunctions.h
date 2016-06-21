@@ -119,6 +119,39 @@ struct TestAutoDiffSE3CostFunctor {
 };
 
 
+////////////////////////////////////////////////////////////////////////////////
+template<typename Scalar = double>
+struct BinaryTranslationCostFunctor {
+  BinaryTranslationCostFunctor(const Eigen::Matrix<Scalar, 3, 1>& trans,
+                        const Eigen::Matrix<Scalar, 3, 3> cov = NULL)
+    : trans_measured(trans),
+      cov_inv_sqrt(cov)
+  {
+  }
+
+  template<typename T>
+  bool operator()(const T* const trans1, const T* const trans2,
+                  T* residuals) const{
+
+    // Pose pair to optimize over
+    const Eigen::Map< const Eigen::Matrix<T, 3, 1> > trans_a(trans1);
+    const Eigen::Map< const Eigen::Matrix<T, 3, 1> > trans_b(trans2);
+
+    // Residual vector in tangent space
+    Eigen::Map< Eigen::Matrix<T, 3, 1> > trans_residuals(residuals);
+
+    trans_residuals = cov_inv_sqrt.template cast<T>() *
+        (trans_measured.template cast<T>() - (trans_b - trans_a));
+
+    return true;
+  }
+
+  Eigen::Matrix<Scalar, 3, 1> trans_measured;
+  // Square root inverse of the covariance matrix
+  const Eigen::Matrix<Scalar, 3, 3> cov_inv_sqrt;
+
+};
+
 
 ////////////////////////////////////////////////////////////////////////////////
 template<typename Scalar = double>
@@ -131,7 +164,7 @@ struct BinaryPoseCostFunctor {
   }
 
   template<typename T>
-  bool operator()(const T* const pose1, const T* pose2,
+  bool operator()(const T* const pose1, const T* const pose2,
                   T* residuals) const{
 
     // Pose pair to optimize over

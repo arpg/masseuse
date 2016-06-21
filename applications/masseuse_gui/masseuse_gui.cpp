@@ -49,18 +49,19 @@ void InitGui(const std::shared_ptr<masseuse::Masseuse>
   pangolin::Var<bool>::Attach("masseuse.PrintMinimizerProgress",
                               pgr->options.print_minimizer_progress, false, true);
   pangolin::Var<bool>::Attach("masseuse.PrintFullReport",
-                              pgr->options.print_full_report, true, true);
+                              pgr->options.print_full_report, false, true);
   pangolin::Var<bool>::Attach("masseuse.EnablePriorAtOrigin",
                               pgr->options.enable_prior_at_origin, true, true);
   pangolin::Var<bool>::Attach("masseuse.SaveOutputBinary",
-                              pgr->options.save_results_binary, true, true);
+                              pgr->options.save_results_binary, false, true);
+  pangolin::Var<bool>::Attach("masseuse.PrintErrorStatistics",
+                              pgr->options.print_error_statistics, true, true);
   pangolin::Var<double>::Attach("masseuse.StiffnessFactor",
                               pgr->options.rel_covariance_mult);
   pangolin::Var<double>::Attach("masseuse.CovarianceDeterminantThreshold",
                               pgr->options.cov_det_thresh);
   pangolin::Var<int>::Attach("masseuse.NumIterations",
                               pgr->options.num_iterations);
-
 
 
 }
@@ -256,15 +257,7 @@ int main(int argc, char* argv[])
 
   masseuse::Options options;
   // initial options, can be changed via Cvars
-  options.print_full_report = true;
-  options.print_minimizer_progress = false;
   options.enable_prior_at_origin = true;
-  options.save_initial_values_g2o = !FLAGS_g2o.empty();
-  options.save_ground_truth_g2o = !FLAGS_g2o.empty();
-  options.g2o_output_dir = FLAGS_g2o;
-  options.save_results_binary = !FLAGS_out.empty();
-  options.rel_covariance_mult = stiffness_multiplier;
-  options.cov_det_thresh = cov_det_treshold;
   options.binary_output_path = FLAGS_out;
   std::shared_ptr<masseuse::Masseuse>
       relaxer(new masseuse::Masseuse(options));
@@ -278,12 +271,6 @@ int main(int argc, char* argv[])
 
   InitGui(relaxer);
   Run(relaxer);
-
-//  // Save the output to file
-//  if(!FLAGS_g2o.empty()){
-//    relaxer->SaveResultsG2o();
-//  }
-
 
   return 0;
 }
