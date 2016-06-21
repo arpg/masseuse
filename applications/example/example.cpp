@@ -9,6 +9,7 @@
 #include "../libGUI/AnalyticsView.h"
 #include "../libGUI/GLPathRel.h"
 #include "../libGUI/GLPathAbs.h"
+#include "../libGUI/GLPathSegment.h"
 /*----------------------------*/
 
 
@@ -28,7 +29,7 @@ struct GuiVars{
   GLPathAbs gl_path_gt;
   GLPathAbs gl_path_input;
   GLPathAbs gl_path_output;
-  GLPathAbs gl_path_lcc;
+  GLPathSegment gl_segment_lcc;
   SceneGraph::GLGrid gl_grid;
 };
 
@@ -53,10 +54,11 @@ void Run(const std::shared_ptr<masseuse::Masseuse>
   pangolin::CreatePanel("ui").SetBounds(0, 1, 0,
                                         pangolin::Attach::Pix(panel_size));
 
-  pangolin::Var<bool>           ui_show_gt_path("ui.Show GT Path", true, true);
+  pangolin::Var<bool>           ui_show_gt_path("ui.Show GT Path", false, true);
   pangolin::Var<bool>           ui_show_initial_path("ui.Show Initial Path", true, true);
   pangolin::Var<bool>           ui_show_relaxed_path("ui.Show Relaxed Path", true, true);
-  pangolin::Var<bool>           ui_show_lcc("ui.Show Loop Closures", true, true);
+  pangolin::Var<bool>           ui_show_lcc_segments("ui.Show Loop Closures", false, true);
+  pangolin::Var<bool>           ui_show_lcc_poses("ui.Show Loop Closure Poses", false, true);
   pangolin::Var<bool>           ui_relax("ui.Relax", true, false);
 
   // Set up container.
@@ -81,17 +83,17 @@ void Run(const std::shared_ptr<masseuse::Masseuse>
   gui_vars.gl_path_output.SetPoseDisplay(0);
   gui_vars.gl_path_output.SetLineColor(1.0, 0.0, 0.0);
 
-  gui_vars.gl_path_lcc.SetPoseDisplay(0);
-  gui_vars.gl_path_lcc.SetLineColor(0.0, 1.0, 1.0);
+  gui_vars.gl_segment_lcc.SetLineColor(1.0, 1.0, 0.0);
 
   gui_vars.gl_graph.AddChild(&gui_vars.gl_path_gt);
   gui_vars.gl_graph.AddChild(&gui_vars.gl_path_input);
   gui_vars.gl_graph.AddChild(&gui_vars.gl_path_output);
-  gui_vars.gl_graph.AddChild(&gui_vars.gl_path_lcc);
+  gui_vars.gl_graph.AddChild(&gui_vars.gl_segment_lcc);
 
 
   // Add grid.
   gui_vars.gl_grid = SceneGraph::GLGrid(300, 1);
+  gui_vars.gl_grid.SetVisible(false);
 
   // Toggle grid keyboard callback
   pangolin::RegisterKeyPressCallback('g',
@@ -124,8 +126,10 @@ void Run(const std::shared_ptr<masseuse::Masseuse>
       gui_vars.gl_path_input.GetPathRef();
   std::vector<Sophus::SE3d>& path_output_vec =
       gui_vars.gl_path_output.GetPathRef();
-  std::vector<Sophus::SE3d>& path_lcc_vec =
-      gui_vars.gl_path_lcc.GetPathRef();
+  std::vector<std::pair<Sophus::SE3d, Sophus::SE3d>>& segment_lcc_vec =
+      gui_vars.gl_segment_lcc.GetSegmentRef();
+  std::vector<std::pair<Sophus::SE3d, Sophus::SE3d>>& pose_segment_lcc_vec =
+      gui_vars.gl_segment_lcc.GetPoseSegmentRef();
 
   gui_vars.gl_graph.AddChild(&gui_vars.gl_grid);
 
@@ -147,16 +151,27 @@ void Run(const std::shared_ptr<masseuse::Masseuse>
     }
   }
 
-//  // Display all the loop closure constraints
-//  const masseuse::GraphAndValues& graphAndValues =
-//      pgr->GetGraphAndValues();
-//  for(const masseuse::Factor f : *graphAndValues.second){
-//    if(f.isLCC){
-//      masseuse::Pose3 T_a = graphAndValues.first->at(f.id1);
-//      masseuse::Pose3 T_b = graphAndValues.first->at(f.id2);
+  // Display all the loop closure constraints
+  const masseuse::Graph& graph = pgr->GetGraph();
+  for (const masseuse::Factor f : graph){
+    if(f.isLCC){
 
-//    }
-//  }
+      // Draws a line between poses that have a LCC
+      masseuse::Pose3 T_a = pgr->GetValues().at(f.id1);
+      masseuse::Pose3 T_b = pgr->GetValues().at(f.id2);
+      segment_lcc_vec.push_back(std::make_pair(T_a, T_b));
+
+      // Draws a line to the projected pose, where the LCC is saying the
+      // other pose should be.
+      const masseuse::Pose3& T_ab = f.rel_pose;
+      masseuse::Pose3 T_b_lcc = T_a * T_ab;
+      pose_segment_lcc_vec.push_back(std::make_pair(T_a, T_b_lcc));
+    }
+  }
+
+  std::cerr << segment_lcc_vec.size() << " LCC's should be plotted" <<
+               std::endl;
+
 
   while(!pangolin::ShouldQuit()) {
 
@@ -180,7 +195,8 @@ void Run(const std::shared_ptr<masseuse::Masseuse>
     gui_vars.gl_path_gt.SetVisible(ui_show_gt_path);
     gui_vars.gl_path_input.SetVisible(ui_show_initial_path);
     gui_vars.gl_path_output.SetVisible(ui_show_relaxed_path);
-    gui_vars.gl_path_lcc.SetVisible(ui_show_lcc);
+    gui_vars.gl_segment_lcc.DrawSegments(ui_show_lcc_segments);
+    gui_vars.gl_segment_lcc.DrawPoses(ui_show_lcc_poses);
 
 
     pangolin::FinishFrame();
@@ -221,7 +237,6 @@ int main(int argc, char* argv[])
   }
 
   InitGui(relaxer);
-  std::cerr << "finished initializing gui" << std::endl;
   Run(relaxer);
 
 //  // Save the output to file
