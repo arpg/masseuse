@@ -98,19 +98,20 @@ class RelPose {
 struct Options
 {
   bool save_initial_values_g2o = false;
-  bool print_initial_final_error = true;
+  bool print_full_report = true;
+  bool print_minimizer_progress = false;
   bool save_results_binary = false;
-  bool print_results = false;
   double abs_error_tol = 1e-15;
   double rel_error_tol = 1e-15;
-  // this will show info about stopping conditions
-  string optimizer_verbosity = "TERMINATION";
   double rel_covariance_mult = 1;
   double cov_det_thresh = 1e-35;
   string binary_output_path = "";
   string g2o_output_dir = "";
   bool save_ground_truth_g2o = false;
   bool do_switchable_constraints = true;
+  bool optimize_rotations = true;
+  int num_iterations = 1000;
+  bool enable_prior_at_origin = true;
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -130,20 +131,20 @@ public:
 //                                 bool save_to_g2o);
     void LoadGroundTruth(const string& gt_file);
 
+    Options options;
 private:
     GraphAndValues LoadPoseGraphAndLCC(const string& pose_graph_file,
                                        bool read_lcc);
     string KeyFromId(unsigned id);
 
     std::vector<RelPose> relative_poses;
-    std::vector<AbsPose> abs_poses;
+    std::vector<AbsPose> output_abs_poses;
     std::map<string, RelPose> added_LCC;
     std::vector<RelPose> loop_closure_constraints;
     std::vector<AbsPose> gt_poses;
     Eigen::Vector6d origin;
-    Options options;
     std::shared_ptr<Graph> graph;
-    std::shared_ptr<Values> initial;
+    std::shared_ptr<Values> values;
 
 }; //Masseuse
 
