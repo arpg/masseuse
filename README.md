@@ -11,3 +11,7 @@ To build the example, which has a GUI for pose graph visualization, the followin
 - Pangolin
 - SceneGraph
 - GFlags
+- CVars
+
+Useful Commands:
+- CMD + S -> Save pose graph to binary file
