@@ -5,7 +5,7 @@ namespace masseuse {
 
 ////////////////////////////////////////////////////////////////////////
 const Values& Masseuse::GetValues(){
-    return *initial;
+    return *values;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -20,12 +20,12 @@ const std::vector<AbsPose>& Masseuse::GetGroundTruth(){
 
 ////////////////////////////////////////////////////////////////////////
 void Masseuse::SaveAbsPG(string out_file) {
-  if (abs_poses.size() == 0) {
+  if (output_abs_poses.size() == 0) {
     std::cout << "No poses in the pose graph yet, skip\n";
     return;
   }
 
-  std::cout << "Saving " << abs_poses.size() << " absolute poses."
+  std::cout << "Saving " << output_abs_poses.size() << " absolute poses."
             << std::endl;
 
   // get the pose files name
@@ -38,8 +38,8 @@ void Masseuse::SaveAbsPG(string out_file) {
   fwrite(&nAbsPos, sizeof(unsigned), 1, fp);
 
   // save all abs poses
-  for (unsigned i = 0; i != abs_poses.size(); i++) {
-    AbsPose &aPos = abs_poses[i];
+  for (unsigned i = 0; i != output_abs_poses.size(); i++) {
+    AbsPose &aPos = output_abs_poses[i];
     fwrite(&aPos.id, sizeof(unsigned), 1, fp);
     fwrite(&aPos.pose_vec, sizeof(Eigen::Vector6d), 1, fp);
     fwrite(&aPos.cov, sizeof(Eigen::Matrix6d), 1, fp);
@@ -212,6 +212,7 @@ GraphAndValues Masseuse::LoadPoseGraphAndLCC(
   std::cout << "Will load " << numRelPoses << " rel poses, "
             << numLCC << " loop closure constranits." << std::endl;
 
+  relative_poses.clear();
   // save all rel poses
   for (unsigned i = 0; i != numRelPoses; i++) {
     RelPose rPos;
@@ -232,6 +233,7 @@ GraphAndValues Masseuse::LoadPoseGraphAndLCC(
   }
 
   if(read_lcc){
+    loop_closure_constraints.clear();
     // save all lcc here
     for (unsigned i = 0; i != numLCC; i++) {
       RelPose rPos;
@@ -439,10 +441,10 @@ GraphAndValues Masseuse::LoadPoseGraphAndLCC(
 
 ////////////////////////////////////////////////////////////////////////
 void Masseuse::LoadPosesFromFile(const string filename){
-  std::tie(graph, initial) = LoadPoseGraphAndLCC(filename, true);
+  std::tie(graph, values) = LoadPoseGraphAndLCC(filename, true);
 
   std::cerr << "Read in " << graph->size() << " factors and " <<
-               initial->size() << " poses." << std::endl;
+               values->size() << " poses." << std::endl;
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -490,23 +492,8 @@ void Masseuse::SaveResultsG2o(){
 ////////////////////////////////////////////////////////////////////////
 void Masseuse::Relax() {
 
-//  NonlinearFactorGraph::shared_ptr graph;
-//  Values::shared_ptr initial;
-//  boost::tie(graph, initial) = loadPG_3D(filename);
 
-//  std::cerr << "read in " << graph->size() << " factors and " <<
-//               initial->size() << " poses.";
-
-//  if (argc >= 3) {
-//    const string outputFile = argv[2];
-//    std::cout << "Writing initial graph and values to file: " << outputFile << std::endl;
-//    writeG2o(*graph, *initial, outputFile);
-//    std::cout << "done! " << std::endl;
-//  }
-
-//  exit(0);
-
-  if(!graph->size() || !initial->size()){
+  if(!graph->size() || !values->size()){
     std::cerr << "Pose graph no loaded. Load poses using 'LoadPosesFromFile'" <<
                  " before calling Relax()" << std::endl;
     throw runtime_error("Initial values or graph empty. Nothing to relax.");
@@ -516,65 +503,43 @@ void Masseuse::Relax() {
   // Global problem
   ceres::Problem problem;
 
-  // Add prior on the first key
-//  NonlinearFactorGraph graphWithPrior = *graph;
-//  noiseModel::Diagonal::shared_ptr priorModel = //
-//      noiseModel::Diagonal::Variances((Vector(6) << 1e-6, 1e-6, 1e-6, 1e-4, 1e-4, 1e-4));
-//  noiseModel::Diagonal::shared_ptr priorModel = //
-//      noiseModel::Diagonal::Variances((Vector(6) << 1, 1, 1, 1, 1, 1));
-//  unsigned firstKey = 0;
-//  BOOST_FOREACH(const Values::ConstKeyValuePair& key_value, *initial) {
-//    std::cout << "Adding prior to poses file " << std::endl;
-//    firstKey = key_value.key;
-//    Point3 p(origin.head<3>());
-//    Rot3 rot(origin[3], origin[4], origin[5]);
-//    graphWithPrior.add(PriorFactor<Pose3>(firstKey, Pose3(rot, p), priorModel));
-//    break;
-//  }
-
-
-  // Write initial values out to g2o format
-//  if (options.save_initial_values_g2o) {
-//    const string outputFile = options.g2o_output_dir + "/pose_graph_input.g2o";
-//    std::cout << "Writing initial graph and values to file: " << outputFile << std::endl;
-//    writeG2o(*graph, *initial, outputFile);
-//    std::cout << "done! " << std::endl;
-//  }
-
-
   // Build the problem with the given pose graph
 
-  // Frist add a prior at the origin:
-  Point3 p = origin.head<3>();
-  Rot3 rot(origin[3], origin[4], origin[5]);
-  Pose3 orig(rot, p);
+  if(options.enable_prior_at_origin){
+    // Add a prior at the origin:
+    Point3 p = origin.head<3>();
+    Rot3 rot(origin[3], origin[4], origin[5]);
+    Pose3 orig(rot, p);
 
-  Eigen::Vector6d cov_vec;
-  cov_vec << 1e-6, 1e-6, 1e-6, 1e-4, 1e-4, 1e-4;
-  Eigen::MatrixXd m = cov_vec.asDiagonal();
+    Eigen::Vector6d cov_vec;
+    cov_vec << 1e-6, 1e-6, 1e-6, 1e-4, 1e-4, 1e-4;
+    Eigen::MatrixXd m = cov_vec.asDiagonal();
 
-  ceres::CostFunction* prior_cost_function =
-      new ceres::AutoDiffCostFunction<PriorPoseCostFunctor<double>,
-      Sophus::SE3::DoF,
-      Sophus::SE3::num_parameters>
-      (new PriorPoseCostFunctor<double>(orig, m.inverse().sqrt()));
+    ceres::CostFunction* prior_cost_function =
+        new ceres::AutoDiffCostFunction<PriorPoseCostFunctor<double>,
+        Sophus::SE3::DoF,
+        Sophus::SE3::num_parameters>
+        (new PriorPoseCostFunctor<double>(orig, m.inverse().sqrt()));
 
-  problem.AddResidualBlock(prior_cost_function, NULL,
-                           initial->begin()->second.data());
+    problem.AddResidualBlock(prior_cost_function, NULL,
+                             values->begin()->second.data());
 
-  std::cerr << "Adding prior at: " << orig.rotationMatrix().eulerAngles
-                                (0,1,2).transpose() << " Trans: " <<
-               orig.translation().transpose() << std::endl << " to pose " <<
-               initial->begin()->first << " : " <<
-               initial->begin()->second.rotationMatrix().eulerAngles
-               (0,1,2).transpose() << " Trans: " <<
-initial->begin()->second.translation().transpose() << std::endl;
+    std::cerr << "Adding prior at: " << orig.rotationMatrix().eulerAngles
+                                  (0,1,2).transpose() << " Trans: " <<
+                 orig.translation().transpose() << std::endl << " to pose " <<
+                 values->begin()->first << " : " <<
+                 values->begin()->second.rotationMatrix().eulerAngles
+                 (0,1,2).transpose() << " Trans: " <<
+  values->begin()->second.translation().transpose() << std::endl;
+  }else{
+    std::cerr << "Not adding any prior at origin" << std::endl;
+  }
 
 
   // Now add a binary constraint for all relative and loop closure constraints
   for(Factor f : *graph){
-      Pose3& T_a = initial->at(f.id1);
-      Pose3& T_b = initial->at(f.id2);
+      Pose3& T_a = values->at(f.id1);
+      Pose3& T_b = values->at(f.id2);
 
     ceres::CostFunction* binary_cost_function =
         new ceres::AutoDiffCostFunction<BinaryPoseCostFunctor
@@ -593,7 +558,7 @@ initial->begin()->second.translation().transpose() << std::endl;
       new ceres::AutoDiffLocalParameterization
       <Sophus::masseuse::AutoDiffLocalParamSE3, 7, 6>;
 
-  for(auto &pair : *initial){
+  for(auto &pair : *values){
     if(problem.HasParameterBlock(pair.second.data())){
       problem.SetParameterization(pair.second.data(),
                                   local_param);
@@ -603,52 +568,61 @@ initial->begin()->second.translation().transpose() << std::endl;
 
 
   std::cout << "Optimizing the factor graph" << std::endl;
-  ceres::Solver::Options options;
-  options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
-  options.minimizer_progress_to_stdout = false;
-  options.max_num_iterations = 1000;
-  options.update_state_every_iteration = false;
-  options.check_gradients = false;
+  ceres::Solver::Options ceres_options;
+  ceres_options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
+  ceres_options.minimizer_progress_to_stdout = options.print_minimizer_progress;
+  ceres_options.max_num_iterations = options.num_iterations;
+  ceres_options.update_state_every_iteration = false;
+  ceres_options.check_gradients = false;
 
   ceres::Solver::Summary summary;
-  ceres::Solve(options, &problem, &summary);
-  std::cerr << summary.FullReport() << std::endl;
+  ceres::Solve(ceres_options, &problem, &summary);
+
+  if(options.print_full_report){
+    std::cerr << summary.FullReport() << std::endl;
+  }
+
+// Save optimization result in a binary file
+  if(options.save_results_binary){
+    output_abs_poses.clear();
+
+    Eigen::Vector6d absPoseVec;
+    ceres::Covariance::Options cov_options;
+    ceres::Covariance covariance(cov_options);
+    vector<pair<const double*, const double*> > covariance_blocks;
 
 
-//  if(options.print_initial_final_error){
-//    std::cout << "initial error=" <<graph->error(*initial)<< std::endl;
-//    std::cout << "final error=" <<graph->error(result)<< std::endl;
-//  }
+    for(const auto& kvp : *values){
+      const Pose3& pose = kvp.second;
+      Point3 p = pose.translation();
+      Rot3 R = pose.so3();
+      absPoseVec.head<3>() = p;
+      // unpack Euler angles: roll, pitch, yaw
+      absPoseVec.tail<3>() = R.matrix().eulerAngles(0, 1, 2);
 
-//  if (options.print_results) {
-//    result.print("result");
-//  }
+      // Now get the covariance for this pose
+      covariance_blocks.clear();
+      covariance_blocks.push_back(std::make_pair(pose.data(), pose.data()));
 
-//   Get the EstPoses out of the result
-//   save 2D & 3D poses
+      CHECK(covariance.Compute(covariance_blocks, &problem));
 
-//  if(options.save_results_binary){
-//   Marginals marginals(graphWithPrior, result);
-//   abs_poses.clear();
+      double cov[6*6];
+      covariance.GetCovarianceBlockInTangentSpace(
+            pose.data(),
+            pose.data(),
+            cov);
 
-//   BOOST_FOREACH(const Values::ConstKeyValuePair& key_value, result) {
+      // convert to an Eigen matrix
+      Eigen::Map < Eigen::Matrix<double, 6, 6, Eigen::RowMajor> > cov_mat(
+            cov);
 
-//     const Pose3* pose3D = dynamic_cast<const Pose3*>(&key_value.value);
-//     Point3 p = pose3D->translation();
-//     Rot3 R = pose3D->rotation();
-//     Eigen::Vector6d absPoseVec;
-//     absPoseVec.head<3>() = p.vector();
-//     absPoseVec.tail<3>() = R.rpy();
+      AbsPose absPose(kvp.first, absPoseVec, cov_mat);
+      output_abs_poses.push_back(absPose);
+    }
 
-//     Matrix cov = marginals.marginalCovariance(key_value.key);
+    SaveAbsPG(options.binary_output_path);
 
-//     AbsPose absPose(key_value.key, absPoseVec,
-//                     cov);
-//     abs_poses.push_back(absPose);
-
-//   }
-//   SaveAbsPG(options.binary_output_path);
-//  }
+  }
 }
 
 }// namespace masseuse

@@ -1,6 +1,8 @@
 #include <iostream>
 
 #include <masseuse/masseuse.h>
+#include <CVars/CVar.h>
+#include "masseuse_gui-cvars.h"
 #include <glog/logging.h>
 
 /*-----GUI Includes-----------*/
@@ -35,9 +37,30 @@ struct GuiVars{
 
 GuiVars gui_vars;
 
+void LoadPosesFromFile(std::shared_ptr<masseuse::Masseuse> relaxer);
+
 ///////////////////////////////////////////////////////////////////////////////
 void InitGui(const std::shared_ptr<masseuse::Masseuse>
              pgr){
+  pangolin::Var<bool>::Attach("masseuse.OptimizeRotations",
+                              pgr->options.optimize_rotations, true, true);
+  pangolin::Var<bool>::Attach("masseuse.EnableSwitchableConstraints",
+                              pgr->options.do_switchable_constraints, false, true);
+  pangolin::Var<bool>::Attach("masseuse.PrintMinimizerProgress",
+                              pgr->options.print_minimizer_progress, false, true);
+  pangolin::Var<bool>::Attach("masseuse.PrintFullReport",
+                              pgr->options.print_full_report, true, true);
+  pangolin::Var<bool>::Attach("masseuse.EnablePriorAtOrigin",
+                              pgr->options.enable_prior_at_origin, true, true);
+  pangolin::Var<bool>::Attach("masseuse.SaveOutputBinary",
+                              pgr->options.save_results_binary, true, true);
+  pangolin::Var<double>::Attach("masseuse.StiffnessFactor",
+                              pgr->options.rel_covariance_mult);
+  pangolin::Var<double>::Attach("masseuse.CovarianceDeterminantThreshold",
+                              pgr->options.cov_det_thresh);
+  pangolin::Var<int>::Attach("masseuse.NumIterations",
+                              pgr->options.num_iterations);
+
 
 
 }
@@ -176,6 +199,9 @@ void Run(const std::shared_ptr<masseuse::Masseuse>
   while(!pangolin::ShouldQuit()) {
 
     if (pangolin::Pushed(ui_relax)) {
+      // Reload the poses
+      LoadPosesFromFile(pgr);
+
       // Relax the poses
       path_output_vec.clear();
       pgr->Relax();
@@ -192,35 +218,25 @@ void Run(const std::shared_ptr<masseuse::Masseuse>
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glColor4f(1.0f,1.0f,1.0f,1.0f);
 
+    // Toggle path visibility
     gui_vars.gl_path_gt.SetVisible(ui_show_gt_path);
     gui_vars.gl_path_input.SetVisible(ui_show_initial_path);
     gui_vars.gl_path_output.SetVisible(ui_show_relaxed_path);
     gui_vars.gl_segment_lcc.DrawSegments(ui_show_lcc_segments);
     gui_vars.gl_segment_lcc.DrawPoses(ui_show_lcc_poses);
 
+    // Togle axis
+    gui_vars.gl_path_gt.DrawAxis(draw_axis);
+    gui_vars.gl_path_input.DrawAxis(draw_axis);
+    gui_vars.gl_path_output.DrawAxis(draw_axis);
+
 
     pangolin::FinishFrame();
   }
 }
 
-
 ///////////////////////////////////////////////////////////////////////////////
-int main(int argc, char* argv[])
-{
-  google::ParseCommandLineFlags(&argc, &argv, true);
-
-  masseuse::Options options;
-  options.print_initial_final_error = true;
-  options.save_initial_values_g2o = !FLAGS_g2o.empty();
-  options.save_ground_truth_g2o = !FLAGS_g2o.empty();
-  options.g2o_output_dir = FLAGS_g2o;
-  options.save_results_binary = !FLAGS_out.empty();
-  options.rel_covariance_mult = 1;
-  options.cov_det_thresh = 1e-38;
-  options.binary_output_path = FLAGS_out;
-  std::shared_ptr<masseuse::Masseuse>
-      relaxer(new masseuse::Masseuse(options));
-
+void LoadPosesFromFile(std::shared_ptr<masseuse::Masseuse> relaxer){
   // Load in the poses
   if(!FLAGS_in.empty()){
     relaxer->LoadPosesFromFile(FLAGS_in);
@@ -230,6 +246,30 @@ int main(int argc, char* argv[])
                  std::endl;
     exit(1);
   }
+
+}
+
+///////////////////////////////////////////////////////////////////////////////
+int main(int argc, char* argv[])
+{
+  google::ParseCommandLineFlags(&argc, &argv, true);
+
+  masseuse::Options options;
+  // initial options, can be changed via Cvars
+  options.print_full_report = true;
+  options.print_minimizer_progress = false;
+  options.enable_prior_at_origin = true;
+  options.save_initial_values_g2o = !FLAGS_g2o.empty();
+  options.save_ground_truth_g2o = !FLAGS_g2o.empty();
+  options.g2o_output_dir = FLAGS_g2o;
+  options.save_results_binary = !FLAGS_out.empty();
+  options.rel_covariance_mult = stiffness_multiplier;
+  options.cov_det_thresh = cov_det_treshold;
+  options.binary_output_path = FLAGS_out;
+  std::shared_ptr<masseuse::Masseuse>
+      relaxer(new masseuse::Masseuse(options));
+
+  LoadPosesFromFile(relaxer);
 
   // Load ground truth
   if(!FLAGS_gt.empty()){
