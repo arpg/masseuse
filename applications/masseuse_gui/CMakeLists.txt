@@ -27,13 +27,13 @@ set(HDRS
    )
 
 set(SRCS
-    example.cpp
+    masseuse_gui.cpp
     ../libGUI/AnalyticsView.cpp
     ../libGUI/ColorPalette.cpp
    )
 
-add_executable(example ${HDRS} ${SRCS})
+add_executable(masseuse_gui ${HDRS} ${SRCS})
 
-target_link_libraries( example
+target_link_libraries( masseuse_gui
   ${REQUIRED_LIBRARIES}
   )
