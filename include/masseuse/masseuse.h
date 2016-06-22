@@ -161,12 +161,14 @@ struct Options
   // Debug
   bool print_error_statistics = true;
   bool print_full_report = false;
-  bool print_minimizer_progress = true;
+  bool print_minimizer_progress = false;
+  bool check_gradients = false;
 
   // Covariance tuning
   double rel_covariance_mult = 5e-2;
   double cov_det_thresh = 1e-35;
-  double cov_z_prior = 0.1;
+  double cov_z_prior = 1e-3;
+  bool use_identity_covariance = true;
 
   // Optimization switches
   bool optimize_rotations = true;
@@ -174,11 +176,10 @@ struct Options
   bool enable_z_prior = true;
 
   // Switchable Constraints
-  bool do_switchable_constraints = false;
+  bool enable_switchable_constraints = false;
   double switch_variable_prior_cov = 1.0;
 
-  // Ceres options
-  bool check_gradients = false;
+  // Ceres optimization options
   bool update_state_every_iteration = false;
   int num_iterations = 1000;
 

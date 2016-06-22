@@ -45,7 +45,7 @@ void AttachConsoleVars(const std::shared_ptr<masseuse::Masseuse>
   pangolin::Var<bool>::Attach("masseuse.OptimizeRotations",
                               pgr->options.optimize_rotations);
   pangolin::Var<bool>::Attach("masseuse.EnableSwitchableConstraints",
-                              pgr->options.do_switchable_constraints);
+                              pgr->options.enable_switchable_constraints);
   pangolin::Var<bool>::Attach("masseuse.PrintMinimizerProgress",
                               pgr->options.print_minimizer_progress);
   pangolin::Var<bool>::Attach("masseuse.PrintFullReport",
@@ -72,6 +72,9 @@ void AttachConsoleVars(const std::shared_ptr<masseuse::Masseuse>
                               pgr->options.enable_z_prior);
   pangolin::Var<double>::Attach("masseuse.ZPriorCovariance",
                               pgr->options.cov_z_prior);
+  pangolin::Var<bool>::Attach("masseuse.UseIdentityCovariance",
+                              pgr->options.use_identity_covariance);
+
 
 
 }

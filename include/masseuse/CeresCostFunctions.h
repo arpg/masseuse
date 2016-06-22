@@ -168,10 +168,8 @@ struct BinaryPoseCostFunctor {
                   T* residuals) const{
 
     // Pose pair to optimize over
-    const Eigen::Map< const Sophus::SE3Group<T> > pose1_(pose1);
-    const Eigen::Map< const Sophus::SE3Group<T> > pose2_(pose2);
-    const Sophus::SE3Group<T> pose_a(pose1_);
-    const Sophus::SE3Group<T> pose_b(pose2_);
+    const Eigen::Map< const Sophus::SE3Group<T> > pose_a(pose1);
+    const Eigen::Map< const Sophus::SE3Group<T> > pose_b(pose2);
 
     // Residual vector in tangent space
     Eigen::Map< Eigen::Matrix<T, 6, 1> > pose_residuals(residuals);
@@ -227,10 +225,8 @@ struct SwitchableBinaryPoseCostFunctor {
                   const T* const s, T* residuals) const{
 
     // Pose pair to optimize over
-    const Eigen::Map< const Sophus::SE3Group<T> > pose1_(pose1);
-    const Eigen::Map< const Sophus::SE3Group<T> > pose2_(pose2);
-    const Sophus::SE3Group<T> pose_a(pose1_);
-    const Sophus::SE3Group<T> pose_b(pose2_);
+    const Eigen::Map< const Sophus::SE3Group<T> > pose_a(pose1);
+    const Eigen::Map< const Sophus::SE3Group<T> > pose_b(pose2);
 
     // Residual vector in tangent space
     Eigen::Map< Eigen::Matrix<T, 6, 1> > pose_residuals(residuals);

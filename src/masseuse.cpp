@@ -228,12 +228,16 @@ GraphAndValues Masseuse::LoadPoseGraphAndLCC(
       numICPfailed++;
     }
 
-
-    m = m * options.rel_covariance_mult;
     //    std::cerr <<  "Adding binary constraint between id: " << id1 << " and " <<
     //                  id2 << std::endl << "with cov det:" << m.determinant() << std::endl;
 
     // Create a new factor between poses
+    if(options.use_identity_covariance){
+      m.setIdentity();
+    }
+
+    m = m * options.rel_covariance_mult;
+
     Factor factor(id1, id2, rel, m);
     graph->push_back(factor);
 
@@ -302,7 +306,12 @@ GraphAndValues Masseuse::LoadPoseGraphAndLCC(
       //      SharedNoiseModel model = noiseModel::Gaussian::Information(m);
       //      NonlinearFactor::shared_ptr factor(
       //          new BetweenFactor<Pose3>(id1, id2, lcc, model));
+
       // Create a new factor between poses
+      if(options.use_identity_covariance){
+        m.setIdentity();
+      }
+
       Factor lcc_factor(id1, id2, lcc, m);
       lcc_factor.isLCC = true;
 
@@ -310,10 +319,6 @@ GraphAndValues Masseuse::LoadPoseGraphAndLCC(
       graph->push_back(lcc_factor);
       curr_lcc.ext_id = graph->size()-1;
 
-      if(options.do_switchable_constraints){
-        // Create a new switch variable
-
-      }
       //m_addedLCC[keyFromId(id2)] = curr_lcc;
 
       /*
@@ -531,16 +536,43 @@ void Masseuse::Relax() {
     std::cerr << "Not adding any prior at origin" << std::endl;
   }
 
+  //bool first_lcc = false;
 
   // Now add a binary constraint for all relative and loop closure constraints
   for(Factor f : *graph){
+
     Pose3& T_a = values->at(f.id1);
     Pose3& T_b = values->at(f.id2);
+
+//    if(f.isLCC && !first_lcc){
+//      // check the residual for the first lcc:
+//      Pose3 Tab = T_a.inverse() * T_b;
+//      Pose3 meas = f.rel_pose;
+
+//      std::cerr << "Tab: " << Tab.rotationMatrix().eulerAngles
+//                   (0,1,2).transpose() << " Trans: " <<
+//                   Tab.translation().transpose() << std::endl << " meas: " <<
+//                   meas.rotationMatrix().eulerAngles
+//                   (0,1,2).transpose() << " Trans: " <<
+//                   meas.translation().transpose() << std::endl;
+
+//      std::cerr << "covariance: \n" << f.cov << std::endl;
+//      std::cerr << "cov inv sqrt: \n" << f.cov.inverse().sqrt() << std::endl;
+//      Eigen::Vector6d res = (Tab.inverse() * meas).log();
+//      std::cerr << "1st LCC residual (Tab^-1 * Meas): " << res.transpose()
+//                << std::endl;
+//      std::cerr << "1st LCC weighed residual (Tab^-1 * Meas): " <<
+//                   (f.cov.inverse().sqrt() * res).transpose()
+//                << std::endl;
+
+//    first_lcc = true;
+
+//    }
 
     if(options.optimize_rotations){
       // Full optimizaion over SE3
 
-      if(options.do_switchable_constraints && f.isLCC){
+      if(options.enable_switchable_constraints && f.isLCC){
         // Use switchable constraints to selectively disable bad LCC's
         // during the optimization, see:
         // 'Switchable Constraints for Robust Pose Graph SLAM'
@@ -553,18 +585,18 @@ void Masseuse::Relax() {
             (new SwitchableBinaryPoseCostFunctor<double>(f.rel_pose,
                                                          f.cov.inverse().sqrt()));
 
-        double& switch_var = f.switch_variable;
+        double* switch_var = &f.switch_variable;
 
         HuberLoss* loss = new HuberLoss(options.huber_loss_delta);
 
         problem.AddResidualBlock(binary_cost_function, loss,
                                  T_a.data(),
                                  T_b.data(),
-                                 &switch_var);
+                                 switch_var);
 
         // Constrain the switch variable to be between 0 and 1
-        problem.SetParameterLowerBound(&f.switch_variable, 0, 0.0);
-        problem.SetParameterUpperBound(&f.switch_variable, 0, 1.0);
+        problem.SetParameterLowerBound(switch_var, 0, 0.0);
+        problem.SetParameterUpperBound(switch_var, 0, 1.0);
 
         // Add a prior to anchor the switch variable at its initial value
         ceres::CostFunction* prior_cost_function =
@@ -573,8 +605,8 @@ void Masseuse::Relax() {
                                                options.switch_variable_prior_cov,
                                                0));
 
-            problem.AddResidualBlock(prior_cost_function, NULL,
-                                     &switch_var);
+        problem.AddResidualBlock(prior_cost_function, NULL,
+                                 switch_var);
 
       }else{
 
@@ -622,8 +654,8 @@ void Masseuse::Relax() {
                                              options.cov_z_prior,
                                              6));
 
-          problem.AddResidualBlock(prior_cost_function, NULL,
-                                   T_b.data());
+      problem.AddResidualBlock(prior_cost_function, NULL,
+                               T_b.data());
 
     }
 
@@ -656,15 +688,29 @@ void Masseuse::Relax() {
     PrintErrorStatistics();
     std::cerr << std::endl;
 
+    if(options.enable_switchable_constraints){
       std::cerr << "switch variables BEFORE optimizing: " << std::endl;
       for(const Factor& f : *graph){
         if(f.isLCC){
-          std::cerr << f.switch_variable << std::endl;
+          std::cerr << f.switch_variable << " ";
         }
       }
+      std::cerr << std::endl;
+    }
+
+    double initial_cost = 0.0;
+    std::vector<double> residuals(problem.NumResiduals());
+    problem.Evaluate(Problem::EvaluateOptions(), &initial_cost, &residuals
+                     , NULL, NULL);
+
+
+    std::cerr << "num residual blocks: " << problem.NumResidualBlocks() <<
+                 std::endl;
+    std::cerr << "Cost BEFORE optimizing: " << initial_cost << std::endl;
+//    Eigen::Map<Eigen::VectorXd> vec_residuals(residuals.data(), residuals.size());
+//    std::cerr << "Residuals: " << vec_residuals << std::endl;
+
   }
-
-
 
 
   ceres::Solver::Summary summary;
@@ -680,12 +726,26 @@ void Masseuse::Relax() {
     std::cerr << "AFTER REALXATION:" << std::endl;
     PrintErrorStatistics();
 
+    if(options.enable_switchable_constraints){
       std::cerr << "switch variables AFTER optimizing: " << std::endl;
       for(const Factor& f : *graph){
         if(f.isLCC){
-          std::cerr << f.switch_variable << std::endl;
+          std::cerr << f.switch_variable << " ";
         }
       }
+      std::cerr << std::endl;
+    }
+
+    double final_cost = 0.0;
+    std::vector<double> residuals(problem.NumResiduals());
+    problem.Evaluate(Problem::EvaluateOptions(), &final_cost, &residuals,
+                     NULL, NULL);
+
+    std::cerr << "Cost AFTER optimizing: " << final_cost << std::endl;
+//    Eigen::Map<Eigen::VectorXd> vec_residuals(residuals.data(), residuals.size());
+//    std::cerr << "Residuals: " << vec_residuals << std::endl;
+
+    problem.NumResiduals();
   }
 
   // Save optimization result in a binary file
