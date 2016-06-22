@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <eigen3/Eigen/Core>
 #include "CeresCostFunctions.h"
+#include <ceres/normal_prior.h>
 #include <unsupported/Eigen/MatrixFunctions>
 #include "AutoDiffLocalParamSE3.h"
 
@@ -102,6 +103,7 @@ class Factor {
   Pose3 rel_pose;
   Matrix cov;
   bool isLCC = false;
+  double switch_variable = 1.0;
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -152,22 +154,40 @@ class RelPose {
 ///////////////////////////////////////////////////////////////////////////////
 struct Options
 {
-  //bool save_initial_values_g2o = false;
-  bool print_full_report = false;
-  bool print_minimizer_progress = false;
+  // I/O
   bool save_results_binary = false;
+  string binary_output_path = "";
+
+  // Debug
+  bool print_error_statistics = true;
+  bool print_full_report = false;
+  bool print_minimizer_progress = true;
+
+  // Covariance tuning
+  double rel_covariance_mult = 5e-2;
+  double cov_det_thresh = 1e-35;
+  double cov_z_prior = 0.1;
+
+  // Optimization switches
+  bool optimize_rotations = true;
+  bool enable_prior_at_origin = true;
+  bool enable_z_prior = true;
+
+  // Switchable Constraints
+  bool do_switchable_constraints = false;
+  double switch_variable_prior_cov = 1.0;
+
+  // Ceres options
+  bool check_gradients = false;
+  bool update_state_every_iteration = false;
+  int num_iterations = 1000;
+
+  // Huber loss delta parameter
+  double huber_loss_delta = 1.0;
+
+  // Currently unused
   double abs_error_tol = 1e-15;
   double rel_error_tol = 1e-15;
-  double rel_covariance_mult = 1;
-  double cov_det_thresh = 1e-35;
-  string binary_output_path = "";
-  //string g2o_output_dir = "";
-  //bool save_ground_truth_g2o = false;
-  bool do_switchable_constraints = false;
-  bool optimize_rotations = true;
-  int num_iterations = 1000;
-  bool enable_prior_at_origin = true;
-  bool print_error_statistics = true;
 };
 
 ///////////////////////////////////////////////////////////////////////////////

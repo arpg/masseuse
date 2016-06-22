@@ -520,13 +520,13 @@ void Masseuse::Relax() {
     problem.AddResidualBlock(prior_cost_function, NULL,
                              values->begin()->second.data());
 
-//    std::cerr << "Adding prior at: " << orig.rotationMatrix().eulerAngles
-//                 (0,1,2).transpose() << " Trans: " <<
-//                 orig.translation().transpose() << std::endl << " to pose " <<
-//                 values->begin()->first << " : " <<
-//                 values->begin()->second.rotationMatrix().eulerAngles
-//                 (0,1,2).transpose() << " Trans: " <<
-//                 values->begin()->second.translation().transpose() << std::endl;
+    //    std::cerr << "Adding prior at: " << orig.rotationMatrix().eulerAngles
+    //                 (0,1,2).transpose() << " Trans: " <<
+    //                 orig.translation().transpose() << std::endl << " to pose " <<
+    //                 values->begin()->first << " : " <<
+    //                 values->begin()->second.rotationMatrix().eulerAngles
+    //                 (0,1,2).transpose() << " Trans: " <<
+    //                 values->begin()->second.translation().transpose() << std::endl;
   }else{
     std::cerr << "Not adding any prior at origin" << std::endl;
   }
@@ -540,16 +540,57 @@ void Masseuse::Relax() {
     if(options.optimize_rotations){
       // Full optimizaion over SE3
 
-      ceres::CostFunction* binary_cost_function =
-          new ceres::AutoDiffCostFunction<BinaryPoseCostFunctor
-          <double>, Sophus::SE3::DoF,
-          Sophus::SE3::num_parameters,
-          Sophus::SE3::num_parameters>
-          (new BinaryPoseCostFunctor<double>(f.rel_pose, f.cov.inverse().sqrt()));
+      if(options.do_switchable_constraints && f.isLCC){
+        // Use switchable constraints to selectively disable bad LCC's
+        // during the optimization, see:
+        // 'Switchable Constraints for Robust Pose Graph SLAM'
+        ceres::CostFunction* binary_cost_function =
+            new ceres::AutoDiffCostFunction<SwitchableBinaryPoseCostFunctor
+            <double>, Sophus::SE3::DoF,
+            Sophus::SE3::num_parameters,
+            Sophus::SE3::num_parameters,
+            1>
+            (new SwitchableBinaryPoseCostFunctor<double>(f.rel_pose,
+                                                         f.cov.inverse().sqrt()));
 
-      problem.AddResidualBlock(binary_cost_function, NULL,
-                               T_a.data(),
-                               T_b.data());
+        double& switch_var = f.switch_variable;
+
+        HuberLoss* loss = new HuberLoss(options.huber_loss_delta);
+
+        problem.AddResidualBlock(binary_cost_function, loss,
+                                 T_a.data(),
+                                 T_b.data(),
+                                 &switch_var);
+
+        // Constrain the switch variable to be between 0 and 1
+        problem.SetParameterLowerBound(&f.switch_variable, 0, 0.0);
+        problem.SetParameterUpperBound(&f.switch_variable, 0, 1.0);
+
+        // Add a prior to anchor the switch variable at its initial value
+        ceres::CostFunction* prior_cost_function =
+            new ceres::AutoDiffCostFunction<PriorCostFunctor<double>,
+            1, 1>(new PriorCostFunctor<double>(f.switch_variable,
+                                               options.switch_variable_prior_cov,
+                                               0));
+
+            problem.AddResidualBlock(prior_cost_function, NULL,
+                                     &switch_var);
+
+      }else{
+
+        ceres::CostFunction* binary_cost_function =
+            new ceres::AutoDiffCostFunction<BinaryPoseCostFunctor
+            <double>, Sophus::SE3::DoF,
+            Sophus::SE3::num_parameters,
+            Sophus::SE3::num_parameters>
+            (new BinaryPoseCostFunctor<double>(f.rel_pose, f.cov.inverse().sqrt()));
+
+        HuberLoss* loss = new HuberLoss(options.huber_loss_delta);
+
+        problem.AddResidualBlock(binary_cost_function, loss,
+                                 T_a.data(),
+                                 T_b.data());
+      }
     }else{
       // don't optimize over rotations, just include the translation in the
       // optimization
@@ -560,11 +601,31 @@ void Masseuse::Relax() {
           (new BinaryTranslationCostFunctor<double>(f.rel_pose.translation(),
                                                     f.cov.inverse().sqrt()));
 
-      problem.AddResidualBlock(binary_trans_cost_function, NULL,
+      HuberLoss* loss = new HuberLoss(options.huber_loss_delta);
+
+      problem.AddResidualBlock(binary_trans_cost_function, loss,
                                T_a.translation().data(),
                                T_b.translation().data());
     }
 
+    if(options.enable_z_prior){
+      // Add a prior on z so that it anchors the height to the initial value
+      // this assumes roughly planar motion to avoid the z drift.
+
+      double initial_z = origin[2]; // first three elements are x, y, z
+
+      // The last parameter is the index of the z in the SO3 data structure
+      // It is [i j k w x y z]
+      ceres::CostFunction* prior_cost_function =
+          new ceres::AutoDiffCostFunction<PriorCostFunctor<double>,
+          1, 7>(new PriorCostFunctor<double>(initial_z,
+                                             options.cov_z_prior,
+                                             6));
+
+          problem.AddResidualBlock(prior_cost_function, NULL,
+                                   T_b.data());
+
+    }
 
   }
 
@@ -586,14 +647,24 @@ void Masseuse::Relax() {
   ceres_options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
   ceres_options.minimizer_progress_to_stdout = options.print_minimizer_progress;
   ceres_options.max_num_iterations = options.num_iterations;
-  ceres_options.update_state_every_iteration = false;
-  ceres_options.check_gradients = false;
+  ceres_options.update_state_every_iteration =
+      options.update_state_every_iteration;
+  ceres_options.check_gradients = options.check_gradients;
 
   if(options.print_error_statistics){
     std::cerr << "BEFORE RELAXATION:" << std::endl;
     PrintErrorStatistics();
     std::cerr << std::endl;
+
+      std::cerr << "switch variables BEFORE optimizing: " << std::endl;
+      for(const Factor& f : *graph){
+        if(f.isLCC){
+          std::cerr << f.switch_variable << std::endl;
+        }
+      }
   }
+
+
 
 
   ceres::Solver::Summary summary;
@@ -604,9 +675,17 @@ void Masseuse::Relax() {
     std::cerr << summary.FullReport() << std::endl;
   }
 
+
   if(options.print_error_statistics){
     std::cerr << "AFTER REALXATION:" << std::endl;
     PrintErrorStatistics();
+
+      std::cerr << "switch variables AFTER optimizing: " << std::endl;
+      for(const Factor& f : *graph){
+        if(f.isLCC){
+          std::cerr << f.switch_variable << std::endl;
+        }
+      }
   }
 
   // Save optimization result in a binary file
