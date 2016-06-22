@@ -177,7 +177,7 @@ struct Options
 
   // Switchable Constraints
   bool enable_switchable_constraints = false;
-  double switch_variable_prior_cov = 1.0;
+  double switch_variable_prior_cov = 0.1;
 
   // Ceres optimization options
   bool update_state_every_iteration = false;
