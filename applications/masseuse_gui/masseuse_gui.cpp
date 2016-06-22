@@ -40,26 +40,40 @@ GuiVars gui_vars;
 void LoadPosesFromFile(std::shared_ptr<masseuse::Masseuse> relaxer);
 
 ///////////////////////////////////////////////////////////////////////////////
-void InitGui(const std::shared_ptr<masseuse::Masseuse>
+void AttachConsoleVars(const std::shared_ptr<masseuse::Masseuse>
              pgr){
   pangolin::Var<bool>::Attach("masseuse.OptimizeRotations",
-                              pgr->options.optimize_rotations, true, true);
+                              pgr->options.optimize_rotations);
   pangolin::Var<bool>::Attach("masseuse.EnableSwitchableConstraints",
-                              pgr->options.do_switchable_constraints, false, true);
+                              pgr->options.enable_switchable_constraints);
   pangolin::Var<bool>::Attach("masseuse.PrintMinimizerProgress",
-                              pgr->options.print_minimizer_progress, false, true);
+                              pgr->options.print_minimizer_progress);
   pangolin::Var<bool>::Attach("masseuse.PrintFullReport",
-                              pgr->options.print_full_report, true, true);
+                              pgr->options.print_full_report);
   pangolin::Var<bool>::Attach("masseuse.EnablePriorAtOrigin",
-                              pgr->options.enable_prior_at_origin, true, true);
+                              pgr->options.enable_prior_at_origin);
   pangolin::Var<bool>::Attach("masseuse.SaveOutputBinary",
-                              pgr->options.save_results_binary, true, true);
+                              pgr->options.save_results_binary);
+  pangolin::Var<bool>::Attach("masseuse.PrintErrorStatistics",
+                              pgr->options.print_error_statistics);
   pangolin::Var<double>::Attach("masseuse.StiffnessFactor",
                               pgr->options.rel_covariance_mult);
   pangolin::Var<double>::Attach("masseuse.CovarianceDeterminantThreshold",
                               pgr->options.cov_det_thresh);
   pangolin::Var<int>::Attach("masseuse.NumIterations",
                               pgr->options.num_iterations);
+  pangolin::Var<double>::Attach("masseuse.SwitchVariablePriorCovariance",
+                              pgr->options.switch_variable_prior_cov);
+  pangolin::Var<bool>::Attach("masseuse.CheckGradients",
+                              pgr->options.check_gradients);
+  pangolin::Var<bool>::Attach("masseuse.UpdateStateEveryIteration",
+                              pgr->options.update_state_every_iteration);
+  pangolin::Var<bool>::Attach("masseuse.EnableZPrior",
+                              pgr->options.enable_z_prior);
+  pangolin::Var<double>::Attach("masseuse.ZPriorCovariance",
+                              pgr->options.cov_z_prior);
+  pangolin::Var<bool>::Attach("masseuse.UseIdentityCovariance",
+                              pgr->options.use_identity_covariance);
 
 
 
@@ -256,15 +270,7 @@ int main(int argc, char* argv[])
 
   masseuse::Options options;
   // initial options, can be changed via Cvars
-  options.print_full_report = true;
-  options.print_minimizer_progress = false;
   options.enable_prior_at_origin = true;
-  options.save_initial_values_g2o = !FLAGS_g2o.empty();
-  options.save_ground_truth_g2o = !FLAGS_g2o.empty();
-  options.g2o_output_dir = FLAGS_g2o;
-  options.save_results_binary = !FLAGS_out.empty();
-  options.rel_covariance_mult = stiffness_multiplier;
-  options.cov_det_thresh = cov_det_treshold;
   options.binary_output_path = FLAGS_out;
   std::shared_ptr<masseuse::Masseuse>
       relaxer(new masseuse::Masseuse(options));
@@ -276,14 +282,8 @@ int main(int argc, char* argv[])
     relaxer->LoadGroundTruth(FLAGS_gt);
   }
 
-  InitGui(relaxer);
+  AttachConsoleVars(relaxer);
   Run(relaxer);
-
-//  // Save the output to file
-//  if(!FLAGS_g2o.empty()){
-//    relaxer->SaveResultsG2o();
-//  }
-
 
   return 0;
 }

@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <eigen3/Eigen/Core>
 #include "CeresCostFunctions.h"
+#include <ceres/normal_prior.h>
 #include <unsupported/Eigen/MatrixFunctions>
 #include "AutoDiffLocalParamSE3.h"
 
@@ -31,6 +32,61 @@ typedef std::vector<Factor> Graph;
 typedef std::pair<std::shared_ptr<Graph>, std::shared_ptr<Values>>
 GraphAndValues;
 
+class Error {
+  public:
+  Error(){
+
+  }
+
+  Eigen::Vector3d& Translation(){
+    return translation;
+  }
+
+  Eigen::Vector3d& Rotation(){
+    return rotation;
+  }
+
+  double& MaxTransError(){
+    return max_trans_error;
+  }
+
+  double& MaxRotError(){
+    return max_rot_error;
+  }
+
+  unsigned& NumPoses(){
+    return num_poses;
+  }
+
+  double& DistanceTraveled(){
+    return distance_traveled;
+  }
+
+  double GetAverageTransError(){
+    if(num_poses > 0){
+      return translation.norm()/num_poses;
+    }else{
+      return -1;
+    }
+  }
+
+  double GetAverageRotError(){
+    if(num_poses > 0){
+      return rotation.norm()/num_poses;
+    }else{
+      return -1;
+    }
+  }
+
+  private:
+    Eigen::Vector3d translation = Eigen::Vector3d::Zero();
+    Eigen::Vector3d rotation = Eigen::Vector3d::Zero();
+    double max_trans_error = 0;
+    double max_rot_error = 0;
+    unsigned num_poses = 0;
+    double distance_traveled = 0;
+};
+
 ///////////////////////////////////////////////////////////////////////////////
 class Factor {
   public:
@@ -47,6 +103,7 @@ class Factor {
   Pose3 rel_pose;
   Matrix cov;
   bool isLCC = false;
+  double switch_variable = 1.0;
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -97,21 +154,41 @@ class RelPose {
 ///////////////////////////////////////////////////////////////////////////////
 struct Options
 {
-  bool save_initial_values_g2o = false;
-  bool print_full_report = true;
-  bool print_minimizer_progress = false;
+  // I/O
   bool save_results_binary = false;
+  string binary_output_path = "";
+
+  // Debug
+  bool print_error_statistics = true;
+  bool print_full_report = false;
+  bool print_minimizer_progress = false;
+  bool check_gradients = false;
+
+  // Covariance tuning
+  double rel_covariance_mult = 5e-2;
+  double cov_det_thresh = 1e-35;
+  double cov_z_prior = 1e-3;
+  bool use_identity_covariance = true;
+
+  // Optimization switches
+  bool optimize_rotations = true;
+  bool enable_prior_at_origin = true;
+  bool enable_z_prior = true;
+
+  // Switchable Constraints
+  bool enable_switchable_constraints = false;
+  double switch_variable_prior_cov = 1.0;
+
+  // Ceres optimization options
+  bool update_state_every_iteration = false;
+  int num_iterations = 1000;
+
+  // Huber loss delta parameter
+  double huber_loss_delta = 1.0;
+
+  // Currently unused
   double abs_error_tol = 1e-15;
   double rel_error_tol = 1e-15;
-  double rel_covariance_mult = 1;
-  double cov_det_thresh = 1e-35;
-  string binary_output_path = "";
-  string g2o_output_dir = "";
-  bool save_ground_truth_g2o = false;
-  bool do_switchable_constraints = true;
-  bool optimize_rotations = true;
-  int num_iterations = 1000;
-  bool enable_prior_at_origin = true;
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -126,9 +203,9 @@ public:
     const Values& GetValues();
     const Graph& GetGraph();
     const std::vector<AbsPose>& GetGroundTruth();
+    Error CalculateError();
+    void PrintErrorStatistics();
     void Relax();
-//    GraphAndValues LoadPoseGraph(const string& pose_graph_file,
-//                                 bool save_to_g2o);
     void LoadGroundTruth(const string& gt_file);
 
     Options options;

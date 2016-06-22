@@ -5,7 +5,7 @@ namespace masseuse {
 
 ////////////////////////////////////////////////////////////////////////
 const Values& Masseuse::GetValues(){
-    return *values;
+  return *values;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -50,91 +50,6 @@ void Masseuse::SaveAbsPG(string out_file) {
             << std::endl;
 }
 
-////////////////////////////////////////////////////////////////////////
-//GraphAndValues Masseuse::LoadPoseGraph(const string& pose_graph_file,
-//                                           bool save_to_g2o) {
-
-//  abs_poses.clear();
-
-//  FILE *fp = (FILE *)fopen(pose_graph_file.c_str(), "rb");
-
-//  if (fp == NULL) {
-//    fprintf(stderr, "Could not open file %s\n",
-//            pose_graph_file.c_str());
-//  }
-
-//  unsigned numAbsPoses = 0;
-
-//  if (fread(&numAbsPoses, sizeof(unsigned), 1, fp) != 1) {
-//    printf("err! cannot load number of absolute poses.\n");
-//     throw invalid_argument("loadPG_3D: error loading file");
-//  }
-
-//  std::cout << "Will load " << numAbsPoses << " abs poses. "
-//            << std::endl;
-
-//  // save all abs poses
-//  for (unsigned i = 0; i != numAbsPoses; i++) {
-//    AbsPose absPos;
-//    if (fread(&absPos.id, sizeof(unsigned), 1, fp) != 1) {
-//       throw invalid_argument("loadPG_3D:  error loading file");
-//    }
-//    if (fread(&absPos.pose, sizeof(Eigen::Vector6d), 1, fp) != 1) {
-//       throw invalid_argument("loadPG_3D:  error loading file");
-//    }
-//    if (fread(&absPos.cov, sizeof(Eigen::Matrix6d), 1, fp) != 1) {
-//       throw invalid_argument("loadPG_3D:  error loading file");
-//    }
-//    abs_poses.push_back(absPos);
-////    std::cout << "absPose: id: " << absPos.id << ", rel_pos: " <<
-////                 absPos.m_AbsPos.transpose()
-////              << ", cov:\n" << absPos.m_Cov << std::endl;
-
-//    //
-//  }
-
-//  fclose(fp);
-//  std::cout << "[LoadPG] Finish loading Pose Graph from  " << pose_graph_file
-//            << std::endl << " read " << abs_poses.size() << " poses" <<
-//               std::endl;
-
-//  Values::shared_ptr initial(new Values);
-//  NonlinearFactorGraph::shared_ptr graph(new NonlinearFactorGraph);
-
-//  Pose3 prev_pose;
-//  for (unsigned ii = 0; ii < abs_poses.size(); ++ii){
-//    AbsPose curr_pose = abs_poses[ii];
-
-//    // Build the next vertex using the relative contstraint
-
-//    Rot3 R = Rot3::ypr(curr_pose.pose[5], curr_pose.pose[4],
-//        curr_pose.pose[3]);
-//    Point3 t = Point3(curr_pose.pose.head<3>());
-//    Pose3 newPose(R, t);
-//    initial->insert((Key)curr_pose.id, newPose);
-
-//    // Also insert a factor for the binary pose constraint
-//    if(ii > 0){
-//      Key id1 = abs_poses[ii-1].id;
-//      Key id2 = curr_pose.id;
-
-//      Pose3 rel = prev_pose.inverse().compose(newPose);
-//      Matrix m = curr_pose.cov;
-
-//      SharedNoiseModel model = noiseModel::Gaussian::Information(m);
-//      NonlinearFactor::shared_ptr factor(
-//          new BetweenFactor<Pose3>(id1, id2, rel, model));
-//      graph->push_back(factor);
-//    }
-//    prev_pose = newPose;
-//  }
-
-//  if(save_to_g2o){
-//    writeG2o(*graph, *initial, "relaxed_poses.g2o");
-//  }
-
-//  return make_pair(graph, initial);
-//}
 
 ////////////////////////////////////////////////////////////////////////
 void Masseuse::LoadGroundTruth(const string& gt_file){
@@ -155,7 +70,7 @@ void Masseuse::LoadGroundTruth(const string& gt_file){
     AbsPose absPose;
     std::istringstream iss(line);
     if(iss >> absPose.pose_vec[0] >> absPose.pose_vec[1] >> absPose.pose_vec[2] >>
-        absPose.pose_vec[3] >> absPose.pose_vec[4] >> absPose.pose_vec[5]){
+       absPose.pose_vec[3] >> absPose.pose_vec[4] >> absPose.pose_vec[5]){
 
       // Create an SE3 pose
       Point3 p(absPose.pose_vec.head<3>());
@@ -199,13 +114,13 @@ GraphAndValues Masseuse::LoadPoseGraphAndLCC(
 
   if (fread(&numRelPoses, sizeof(unsigned), 1, fp) != 1) {
     printf("error! Cannot load num of relative poses.\n");
-     throw invalid_argument("LoadPoseGraphAndLCC:  error loading file");
+    throw invalid_argument("LoadPoseGraphAndLCC:  error loading file");
   }
 
   if(read_lcc){
     if (fread(&numLCC, sizeof(unsigned), 1, fp) != 1) {
       printf("error! Cannot load num of loop closure constraints.\n");
-       throw invalid_argument("LoadPoseGraphAndLCC:  error loading file");
+      throw invalid_argument("LoadPoseGraphAndLCC:  error loading file");
     }
   }
 
@@ -217,16 +132,16 @@ GraphAndValues Masseuse::LoadPoseGraphAndLCC(
   for (unsigned i = 0; i != numRelPoses; i++) {
     RelPose rPos;
     if (fread(&rPos.ref_id, sizeof(unsigned), 1, fp) != 1) {
-       throw invalid_argument("LoadPoseGraphAndLCC:  error loading file");
+      throw invalid_argument("LoadPoseGraphAndLCC:  error loading file");
     }
     if (fread(&rPos.live_id, sizeof(unsigned), 1, fp) != 1) {
-       throw invalid_argument("LoadPoseGraphAndLCC:  error loading file");
+      throw invalid_argument("LoadPoseGraphAndLCC:  error loading file");
     }
     if (fread(&rPos.rel_pose, sizeof(Eigen::Vector6d), 1, fp) != 1) {
-       throw invalid_argument("LoadPoseGraphAndLCC:  error loading file");
+      throw invalid_argument("LoadPoseGraphAndLCC:  error loading file");
     }
     if (fread(&rPos.cov, sizeof(Eigen::Matrix6d), 1, fp) != 1) {
-       throw invalid_argument("LoadPoseGraphAndLCC:  error loading file");
+      throw invalid_argument("LoadPoseGraphAndLCC:  error loading file");
     }
 
     relative_poses.push_back(rPos);
@@ -238,16 +153,16 @@ GraphAndValues Masseuse::LoadPoseGraphAndLCC(
     for (unsigned i = 0; i != numLCC; i++) {
       RelPose rPos;
       if (fread(&rPos.ref_id, sizeof(unsigned), 1, fp) != 1) {
-         throw invalid_argument("LoadPoseGraphAndLCC:  error loading file");
+        throw invalid_argument("LoadPoseGraphAndLCC:  error loading file");
       }
       if (fread(&rPos.live_id, sizeof(unsigned), 1, fp) != 1) {
-         throw invalid_argument("LoadPoseGraphAndLCC:  error loading file");
+        throw invalid_argument("LoadPoseGraphAndLCC:  error loading file");
       }
       if (fread(&rPos.rel_pose, sizeof(Eigen::Vector6d), 1, fp) != 1) {
-         throw invalid_argument("LoadPoseGraphAndLCC:  error loading file");
+        throw invalid_argument("LoadPoseGraphAndLCC:  error loading file");
       }
       if (fread(&rPos.cov, sizeof(Eigen::Matrix6d), 1, fp) != 1) {
-         throw invalid_argument("LoadPoseGraphAndLCC:  error loading file");
+        throw invalid_argument("LoadPoseGraphAndLCC:  error loading file");
       }
 
       loop_closure_constraints.push_back(rPos);
@@ -274,10 +189,10 @@ GraphAndValues Masseuse::LoadPoseGraphAndLCC(
       (*initial)[id] = orig;
       prev_pose = orig;
 
-//      std::cerr << "inserting origin: Rot: " << orig.rotationMatrix().eulerAngles
-//                   (0,1,2).transpose() << " Trans: " << orig.translation().transpose() <<
-//                   " at index:  " << id <<
-//                   std::endl;
+      //      std::cerr << "inserting origin: Rot: " << orig.rotationMatrix().eulerAngles
+      //                   (0,1,2).transpose() << " Trans: " << orig.translation().transpose() <<
+      //                   " at index:  " << id <<
+      //                   std::endl;
     }
 
     // Build the next vertex using the relative contstraint
@@ -289,10 +204,10 @@ GraphAndValues Masseuse::LoadPoseGraphAndLCC(
     Pose3 new_pose = prev_pose*rel;
     (*initial)[curr_pose.live_id] = new_pose;
 
-//    std::cerr << "inserting pose: Rot: " << new_pose.rotationMatrix().eulerAngles
-//                 (0,1,2).transpose() << " Trans: " << new_pose.translation().transpose() <<
-//                 " at index:  " << curr_pose.live_id <<
-//                 std::endl;
+    //    std::cerr << "inserting pose: Rot: " << new_pose.rotationMatrix().eulerAngles
+    //                 (0,1,2).transpose() << " Trans: " << new_pose.translation().transpose() <<
+    //                 " at index:  " << curr_pose.live_id <<
+    //                 std::endl;
 
     prev_pose = new_pose;
 
@@ -303,9 +218,9 @@ GraphAndValues Masseuse::LoadPoseGraphAndLCC(
     Matrix m = curr_pose.cov;
     if(m.sum() == 0 || m.determinant() <= 0 || std::isnan(m.determinant())
        || m.determinant() > options.cov_det_thresh){
-//      std::cerr << "ICP failed for rel pose between " << id1 << " and " << id2 <<
-//                   "Setting fixed covaraince..." <<
-//                   std::endl;
+      //      std::cerr << "ICP failed for rel pose between " << id1 << " and " << id2 <<
+      //                   "Setting fixed covaraince..." <<
+      //                   std::endl;
       Eigen::Vector6d cov_vec;
       // TODO: Improve handling of cases where the frame-to-frame ICP failed
       cov_vec << 7e-8, 7e-8, 7e-8, 8e-11, 8e-11, 8e-11;
@@ -313,12 +228,16 @@ GraphAndValues Masseuse::LoadPoseGraphAndLCC(
       numICPfailed++;
     }
 
-
-    m = m * options.rel_covariance_mult;
-//    std::cerr <<  "Adding binary constraint between id: " << id1 << " and " <<
-//                  id2 << std::endl << "with cov det:" << m.determinant() << std::endl;
+    //    std::cerr <<  "Adding binary constraint between id: " << id1 << " and " <<
+    //                  id2 << std::endl << "with cov det:" << m.determinant() << std::endl;
 
     // Create a new factor between poses
+    if(options.use_identity_covariance){
+      m.setIdentity();
+    }
+
+    m = m * options.rel_covariance_mult;
+
     Factor factor(id1, id2, rel, m);
     graph->push_back(factor);
 
@@ -354,40 +273,45 @@ GraphAndValues Masseuse::LoadPoseGraphAndLCC(
       }
 
       //ZZZZZZZZZ Temp for specific dataset, remove this:
-//      std::set<int> remove_ids;
-//      int ids[] = {5880, 5850, 5840, 5830, 4020, 4000, 3990, 3980, 3950,
-//                   5800, 5810, 5830};
-//      remove_ids.insert(ids, ids+12);
-//      if(remove_ids.find(id1) != remove_ids.end() ||
-//         remove_ids.find(id2) != remove_ids.end()){
-//        std::cerr << "LLC with refID: " << id1 << " and liveID: " <<
-//                     id2 << " cov det: " << m.determinant() << std::endl;
-//        discarded_lcc++;
-//        continue;
-//      }
+      //      std::set<int> remove_ids;
+      //      int ids[] = {5880, 5850, 5840, 5830, 4020, 4000, 3990, 3980, 3950,
+      //                   5800, 5810, 5830};
+      //      remove_ids.insert(ids, ids+12);
+      //      if(remove_ids.find(id1) != remove_ids.end() ||
+      //         remove_ids.find(id2) != remove_ids.end()){
+      //        std::cerr << "LLC with refID: " << id1 << " and liveID: " <<
+      //                     id2 << " cov det: " << m.determinant() << std::endl;
+      //        discarded_lcc++;
+      //        continue;
+      //      }
 
 
       // check if the lcc is between far away poses. If so, downweight it's
       // covariance.
 
-//      const Pose3* lcc_0 = dynamic_cast<const Pose3*>(&initial->at(id1));
-//      const Pose3* lcc_1 = dynamic_cast<const Pose3*>(&initial->at(id2));
+      //      const Pose3* lcc_0 = dynamic_cast<const Pose3*>(&initial->at(id1));
+      //      const Pose3* lcc_1 = dynamic_cast<const Pose3*>(&initial->at(id2));
 
-//      Pose3 lcc_diff = lcc_0->compose(lcc).inverse().compose(*lcc_1);
-//            std::cerr << "distance between poses for lcc: " << ii <<
-//                         " between poses " <<  id1 << " and " << id2 << ": "
-//                      << lcc_diff.translation().norm() << std::endl;
-//      Pose3 diff = (*lcc_0).inverse().compose(*lcc_1);
-//      std::cerr << "distance between poses for lcc: " << ii <<
-//                   " between poses " <<  id1 << " and " << id2 << ": "
-//                << lcc.translation().norm() << std::endl;
+      //      Pose3 lcc_diff = lcc_0->compose(lcc).inverse().compose(*lcc_1);
+      //            std::cerr << "distance between poses for lcc: " << ii <<
+      //                         " between poses " <<  id1 << " and " << id2 << ": "
+      //                      << lcc_diff.translation().norm() << std::endl;
+      //      Pose3 diff = (*lcc_0).inverse().compose(*lcc_1);
+      //      std::cerr << "distance between poses for lcc: " << ii <<
+      //                   " between poses " <<  id1 << " and " << id2 << ": "
+      //                << lcc.translation().norm() << std::endl;
 
 
 
-//      SharedNoiseModel model = noiseModel::Gaussian::Information(m);
-//      NonlinearFactor::shared_ptr factor(
-//          new BetweenFactor<Pose3>(id1, id2, lcc, model));
+      //      SharedNoiseModel model = noiseModel::Gaussian::Information(m);
+      //      NonlinearFactor::shared_ptr factor(
+      //          new BetweenFactor<Pose3>(id1, id2, lcc, model));
+
       // Create a new factor between poses
+      if(options.use_identity_covariance){
+        m.setIdentity();
+      }
+
       Factor lcc_factor(id1, id2, lcc, m);
       lcc_factor.isLCC = true;
 
@@ -395,10 +319,6 @@ GraphAndValues Masseuse::LoadPoseGraphAndLCC(
       graph->push_back(lcc_factor);
       curr_lcc.ext_id = graph->size()-1;
 
-      if(options.do_switchable_constraints){
-        // Create a new switch variable
-
-      }
       //m_addedLCC[keyFromId(id2)] = curr_lcc;
 
       /*
@@ -461,32 +381,113 @@ Masseuse::Masseuse(Options options) {
 
 ////////////////////////////////////////////////////////////////////////
 void Masseuse::SaveResultsG2o(){
-//  std::string outputFile = options.g2o_output_dir +
-//      "/pose_graph_output.g2o";
-//  std::cout << "Writing results to file: " << outputFile
-//            << std::endl;
-//  writeG2o(*graph, result, outputFile);
-//  std::cout << "done! " << std::endl;
+  //  std::string outputFile = options.g2o_output_dir +
+  //      "/pose_graph_output.g2o";
+  //  std::cout << "Writing results to file: " << outputFile
+  //            << std::endl;
+  //  writeG2o(*graph, result, outputFile);
+  //  std::cout << "done! " << std::endl;
 
-//  if(options.save_ground_truth_g2o && gt_poses.size() > 0){
+  //  if(options.save_ground_truth_g2o && gt_poses.size() > 0){
 
-//    NonlinearFactorGraph::shared_ptr gtGraph;
-//    Values gtPoses;
-//    std::size_t id = 0;
-//    for(AbsPose gtPose : gt_poses ){
-//      Rot3 R = Rot3::ypr(gtPose.pose[5], gtPose.pose[4], gtPose.pose[3]);
-//      Point3 t = Point3(gtPose.pose.head<3>());
-//      Pose3 pose(R, t);
-//      gtPoses.insert((Key)id++, pose);
-//    }
+  //    NonlinearFactorGraph::shared_ptr gtGraph;
+  //    Values gtPoses;
+  //    std::size_t id = 0;
+  //    for(AbsPose gtPose : gt_poses ){
+  //      Rot3 R = Rot3::ypr(gtPose.pose[5], gtPose.pose[4], gtPose.pose[3]);
+  //      Point3 t = Point3(gtPose.pose.head<3>());
+  //      Pose3 pose(R, t);
+  //      gtPoses.insert((Key)id++, pose);
+  //    }
 
-//    //std::size_t found = outputFile.find_last_of("/");
-//    //std::string gtOutputFile = outputFile.substr(0, found+1) + "ground_truth.g2o";
-//    std::string gtOutputFile = options.g2o_output_dir + "/ground_truth.g2o";
-//    std::cout << "Writing ground truth to file: " << gtOutputFile << std::endl;
-//    writeG2o(*gtGraph, gtPoses, gtOutputFile);
-//    std::cout << "done! " << std::endl;
-//  }
+  //    //std::size_t found = outputFile.find_last_of("/");
+  //    //std::string gtOutputFile = outputFile.substr(0, found+1) + "ground_truth.g2o";
+  //    std::string gtOutputFile = options.g2o_output_dir + "/ground_truth.g2o";
+  //    std::cout << "Writing ground truth to file: " << gtOutputFile << std::endl;
+  //    writeG2o(*gtGraph, gtPoses, gtOutputFile);
+  //    std::cout << "done! " << std::endl;
+  //  }
+}
+
+////////////////////////////////////////////////////////////////////////
+void Masseuse::PrintErrorStatistics(){
+  // calclate the error
+  Error err = CalculateError();
+
+  std::cerr << "======================ERROR REPORT=====================" <<
+               std::endl;
+  std::cerr << "Average trans error (m): " << err.GetAverageTransError() <<
+               std::endl;
+
+  std::cerr << "Average rot error (deg): " << err.GetAverageRotError() <<
+               std::endl;
+
+  std::cerr << "Total distance traveled (m): " << err.DistanceTraveled() <<
+               std::endl;
+
+  std::cerr << "% Avg. trans error: " << err.GetAverageTransError()/
+               err.DistanceTraveled() * 100 << " %" << std::endl;
+
+  std::cerr << "Max trans error (m): " << err.MaxTransError() << std::endl;
+
+  std::cerr << "Max rot error (deg): " << err.MaxRotError() << std::endl;
+
+  std::cerr << "======================================================" <<
+               std::endl;
+
+}
+
+////////////////////////////////////////////////////////////////////////
+Error Masseuse::CalculateError(){
+  // Tries to calculate a pose-pose error to the ground truth.
+
+  Error error;
+
+  // First check if we have a ground truth to compare against
+  if(!gt_poses.size()){
+    std::cerr << "Unable to calculate error, no ground truth provided." <<
+                 std::endl;
+    return error;
+  }
+
+  if(gt_poses.size() == values->size()){
+    size_t index = 0;
+    for(const auto& kvp : *values){
+      Pose3 est_pose = kvp.second;
+      Pose3 gt_pose = gt_poses.at(index).Twp;
+
+      Eigen::Vector6d pose_error = (est_pose * gt_pose.inverse()).log();
+      Eigen::Vector3d trans_error = pose_error.head<3>();
+      Eigen::Vector3d rot_error = pose_error.tail<3>();
+      error.Translation()+= trans_error;
+      error.Rotation()+= rot_error;
+
+      error.NumPoses()++;
+
+      // Set the max trans and rotation errors
+      if(error.MaxTransError() < trans_error.norm()){
+        error.MaxTransError() = trans_error.norm();
+      }
+      if(error.MaxRotError() < rot_error.norm()){
+        error.MaxRotError() = rot_error.norm();
+      }
+
+
+      if(index > 0){
+        // add up the total distance traveled, based on the ground truth
+        error.DistanceTraveled()+= (gt_poses.at(index-1).Twp.inverse() *
+                                    gt_poses.at(index).Twp).translation().norm();
+      }
+
+      index++;
+    }
+  }else{
+    std::cerr << "There are " << gt_poses.size() << " ground truth poses"
+              << " and " << values->size() << " optimized poses, cannot "
+              << "compare." << std::endl;
+  }
+
+  return error;
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -494,7 +495,7 @@ void Masseuse::Relax() {
 
 
   if(!graph->size() || !values->size()){
-    std::cerr << "Pose graph no loaded. Load poses using 'LoadPosesFromFile'" <<
+    std::cerr << "Pose graph not loaded. Load poses using 'LoadPosesFromFile'" <<
                  " before calling Relax()" << std::endl;
     throw runtime_error("Initial values or graph empty. Nothing to relax.");
 
@@ -524,33 +525,139 @@ void Masseuse::Relax() {
     problem.AddResidualBlock(prior_cost_function, NULL,
                              values->begin()->second.data());
 
-    std::cerr << "Adding prior at: " << orig.rotationMatrix().eulerAngles
-                                  (0,1,2).transpose() << " Trans: " <<
-                 orig.translation().transpose() << std::endl << " to pose " <<
-                 values->begin()->first << " : " <<
-                 values->begin()->second.rotationMatrix().eulerAngles
-                 (0,1,2).transpose() << " Trans: " <<
-  values->begin()->second.translation().transpose() << std::endl;
+    //    std::cerr << "Adding prior at: " << orig.rotationMatrix().eulerAngles
+    //                 (0,1,2).transpose() << " Trans: " <<
+    //                 orig.translation().transpose() << std::endl << " to pose " <<
+    //                 values->begin()->first << " : " <<
+    //                 values->begin()->second.rotationMatrix().eulerAngles
+    //                 (0,1,2).transpose() << " Trans: " <<
+    //                 values->begin()->second.translation().transpose() << std::endl;
   }else{
     std::cerr << "Not adding any prior at origin" << std::endl;
   }
 
+  //bool first_lcc = false;
 
   // Now add a binary constraint for all relative and loop closure constraints
   for(Factor f : *graph){
-      Pose3& T_a = values->at(f.id1);
-      Pose3& T_b = values->at(f.id2);
 
-    ceres::CostFunction* binary_cost_function =
-        new ceres::AutoDiffCostFunction<BinaryPoseCostFunctor
-        <double>, Sophus::SE3::DoF,
-        Sophus::SE3::num_parameters,
-        Sophus::SE3::num_parameters>
-        (new BinaryPoseCostFunctor<double>(f.rel_pose, f.cov.inverse().sqrt()));
+    Pose3& T_a = values->at(f.id1);
+    Pose3& T_b = values->at(f.id2);
 
-    problem.AddResidualBlock(binary_cost_function, NULL,
-                             T_a.data(),
-                             T_b.data());
+//    if(f.isLCC && !first_lcc){
+//      // check the residual for the first lcc:
+//      Pose3 Tab = T_a.inverse() * T_b;
+//      Pose3 meas = f.rel_pose;
+
+//      std::cerr << "Tab: " << Tab.rotationMatrix().eulerAngles
+//                   (0,1,2).transpose() << " Trans: " <<
+//                   Tab.translation().transpose() << std::endl << " meas: " <<
+//                   meas.rotationMatrix().eulerAngles
+//                   (0,1,2).transpose() << " Trans: " <<
+//                   meas.translation().transpose() << std::endl;
+
+//      std::cerr << "covariance: \n" << f.cov << std::endl;
+//      std::cerr << "cov inv sqrt: \n" << f.cov.inverse().sqrt() << std::endl;
+//      Eigen::Vector6d res = (Tab.inverse() * meas).log();
+//      std::cerr << "1st LCC residual (Tab^-1 * Meas): " << res.transpose()
+//                << std::endl;
+//      std::cerr << "1st LCC weighed residual (Tab^-1 * Meas): " <<
+//                   (f.cov.inverse().sqrt() * res).transpose()
+//                << std::endl;
+
+//    first_lcc = true;
+
+//    }
+
+    if(options.optimize_rotations){
+      // Full optimizaion over SE3
+
+      if(options.enable_switchable_constraints && f.isLCC){
+        // Use switchable constraints to selectively disable bad LCC's
+        // during the optimization, see:
+        // 'Switchable Constraints for Robust Pose Graph SLAM'
+        ceres::CostFunction* binary_cost_function =
+            new ceres::AutoDiffCostFunction<SwitchableBinaryPoseCostFunctor
+            <double>, Sophus::SE3::DoF,
+            Sophus::SE3::num_parameters,
+            Sophus::SE3::num_parameters,
+            1>
+            (new SwitchableBinaryPoseCostFunctor<double>(f.rel_pose,
+                                                         f.cov.inverse().sqrt()));
+
+        double* switch_var = &f.switch_variable;
+
+        HuberLoss* loss = new HuberLoss(options.huber_loss_delta);
+
+        problem.AddResidualBlock(binary_cost_function, loss,
+                                 T_a.data(),
+                                 T_b.data(),
+                                 switch_var);
+
+        // Constrain the switch variable to be between 0 and 1
+        problem.SetParameterLowerBound(switch_var, 0, 0.0);
+        problem.SetParameterUpperBound(switch_var, 0, 1.0);
+
+        // Add a prior to anchor the switch variable at its initial value
+        ceres::CostFunction* prior_cost_function =
+            new ceres::AutoDiffCostFunction<PriorCostFunctor<double>,
+            1, 1>(new PriorCostFunctor<double>(f.switch_variable,
+                                               options.switch_variable_prior_cov,
+                                               0));
+
+        problem.AddResidualBlock(prior_cost_function, NULL,
+                                 switch_var);
+
+      }else{
+
+        ceres::CostFunction* binary_cost_function =
+            new ceres::AutoDiffCostFunction<BinaryPoseCostFunctor
+            <double>, Sophus::SE3::DoF,
+            Sophus::SE3::num_parameters,
+            Sophus::SE3::num_parameters>
+            (new BinaryPoseCostFunctor<double>(f.rel_pose, f.cov.inverse().sqrt()));
+
+        HuberLoss* loss = new HuberLoss(options.huber_loss_delta);
+
+        problem.AddResidualBlock(binary_cost_function, loss,
+                                 T_a.data(),
+                                 T_b.data());
+      }
+    }else{
+      // don't optimize over rotations, just include the translation in the
+      // optimization
+
+      ceres::CostFunction* binary_trans_cost_function =
+          new ceres::AutoDiffCostFunction<BinaryTranslationCostFunctor
+          <double>, 3, 3, 3>
+          (new BinaryTranslationCostFunctor<double>(f.rel_pose.translation(),
+                                                    f.cov.inverse().sqrt()));
+
+      HuberLoss* loss = new HuberLoss(options.huber_loss_delta);
+
+      problem.AddResidualBlock(binary_trans_cost_function, loss,
+                               T_a.translation().data(),
+                               T_b.translation().data());
+    }
+
+    if(options.enable_z_prior){
+      // Add a prior on z so that it anchors the height to the initial value
+      // this assumes roughly planar motion to avoid the z drift.
+
+      double initial_z = origin[2]; // first three elements are x, y, z
+
+      // The last parameter is the index of the z in the SO3 data structure
+      // It is [i j k w x y z]
+      ceres::CostFunction* prior_cost_function =
+          new ceres::AutoDiffCostFunction<PriorCostFunctor<double>,
+          1, 7>(new PriorCostFunctor<double>(initial_z,
+                                             options.cov_z_prior,
+                                             6));
+
+      problem.AddResidualBlock(prior_cost_function, NULL,
+                               T_b.data());
+
+    }
 
   }
 
@@ -572,17 +679,76 @@ void Masseuse::Relax() {
   ceres_options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
   ceres_options.minimizer_progress_to_stdout = options.print_minimizer_progress;
   ceres_options.max_num_iterations = options.num_iterations;
-  ceres_options.update_state_every_iteration = false;
-  ceres_options.check_gradients = false;
+  ceres_options.update_state_every_iteration =
+      options.update_state_every_iteration;
+  ceres_options.check_gradients = options.check_gradients;
+
+  if(options.print_error_statistics){
+    std::cerr << "BEFORE RELAXATION:" << std::endl;
+    PrintErrorStatistics();
+    std::cerr << std::endl;
+
+    if(options.enable_switchable_constraints){
+      std::cerr << "switch variables BEFORE optimizing: " << std::endl;
+      for(const Factor& f : *graph){
+        if(f.isLCC){
+          std::cerr << f.switch_variable << " ";
+        }
+      }
+      std::cerr << std::endl;
+    }
+
+    double initial_cost = 0.0;
+    std::vector<double> residuals(problem.NumResiduals());
+    problem.Evaluate(Problem::EvaluateOptions(), &initial_cost, &residuals
+                     , NULL, NULL);
+
+
+    std::cerr << "num residual blocks: " << problem.NumResidualBlocks() <<
+                 std::endl;
+    std::cerr << "Cost BEFORE optimizing: " << initial_cost << std::endl;
+//    Eigen::Map<Eigen::VectorXd> vec_residuals(residuals.data(), residuals.size());
+//    std::cerr << "Residuals: " << vec_residuals << std::endl;
+
+  }
+
 
   ceres::Solver::Summary summary;
   ceres::Solve(ceres_options, &problem, &summary);
+  std::cerr << "Optimization done.\n\n";
 
   if(options.print_full_report){
     std::cerr << summary.FullReport() << std::endl;
   }
 
-// Save optimization result in a binary file
+
+  if(options.print_error_statistics){
+    std::cerr << "AFTER REALXATION:" << std::endl;
+    PrintErrorStatistics();
+
+    if(options.enable_switchable_constraints){
+      std::cerr << "switch variables AFTER optimizing: " << std::endl;
+      for(const Factor& f : *graph){
+        if(f.isLCC){
+          std::cerr << f.switch_variable << " ";
+        }
+      }
+      std::cerr << std::endl;
+    }
+
+    double final_cost = 0.0;
+    std::vector<double> residuals(problem.NumResiduals());
+    problem.Evaluate(Problem::EvaluateOptions(), &final_cost, &residuals,
+                     NULL, NULL);
+
+    std::cerr << "Cost AFTER optimizing: " << final_cost << std::endl;
+//    Eigen::Map<Eigen::VectorXd> vec_residuals(residuals.data(), residuals.size());
+//    std::cerr << "Residuals: " << vec_residuals << std::endl;
+
+    problem.NumResiduals();
+  }
+
+  // Save optimization result in a binary file
   if(options.save_results_binary){
     output_abs_poses.clear();
 

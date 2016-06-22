@@ -119,6 +119,39 @@ struct TestAutoDiffSE3CostFunctor {
 };
 
 
+////////////////////////////////////////////////////////////////////////////////
+template<typename Scalar = double>
+struct BinaryTranslationCostFunctor {
+  BinaryTranslationCostFunctor(const Eigen::Matrix<Scalar, 3, 1>& trans,
+                        const Eigen::Matrix<Scalar, 3, 3> cov = NULL)
+    : trans_measured(trans),
+      cov_inv_sqrt(cov)
+  {
+  }
+
+  template<typename T>
+  bool operator()(const T* const trans1, const T* const trans2,
+                  T* residuals) const{
+
+    // Pose pair to optimize over
+    const Eigen::Map< const Eigen::Matrix<T, 3, 1> > trans_a(trans1);
+    const Eigen::Map< const Eigen::Matrix<T, 3, 1> > trans_b(trans2);
+
+    // Residual vector in tangent space
+    Eigen::Map< Eigen::Matrix<T, 3, 1> > trans_residuals(residuals);
+
+    trans_residuals = cov_inv_sqrt.template cast<T>() *
+        (trans_measured.template cast<T>() - (trans_b - trans_a));
+
+    return true;
+  }
+
+  Eigen::Matrix<Scalar, 3, 1> trans_measured;
+  // Square root inverse of the covariance matrix
+  const Eigen::Matrix<Scalar, 3, 3> cov_inv_sqrt;
+
+};
+
 
 ////////////////////////////////////////////////////////////////////////////////
 template<typename Scalar = double>
@@ -131,20 +164,75 @@ struct BinaryPoseCostFunctor {
   }
 
   template<typename T>
-  bool operator()(const T* const pose1, const T* pose2,
+  bool operator()(const T* const pose1, const T* const pose2,
                   T* residuals) const{
 
     // Pose pair to optimize over
-    const Eigen::Map< const Sophus::SE3Group<T> > pose1_(pose1);
-    const Eigen::Map< const Sophus::SE3Group<T> > pose2_(pose2);
-    const Sophus::SE3Group<T> pose_a(pose1_);
-    const Sophus::SE3Group<T> pose_b(pose2_);
+    const Eigen::Map< const Sophus::SE3Group<T> > pose_a(pose1);
+    const Eigen::Map< const Sophus::SE3Group<T> > pose_b(pose2);
 
     // Residual vector in tangent space
     Eigen::Map< Eigen::Matrix<T, 6, 1> > pose_residuals(residuals);
 
     Sophus::SE3Group<T> Tab_meas = pose_a.inverse() * pose_b;
     pose_residuals = cov_inv_sqrt.template cast<T>() *
+        log_decoupled(Tab_meas, Tab_est.cast<T>());
+
+    return true;
+  }
+
+  Sophus::SE3d Tab_est;
+  // Square root inverse of the covariance matrix, in tangent space
+  const Eigen::Matrix<Scalar, 6, 6> cov_inv_sqrt;
+
+};
+
+////////////////////////////////////////////////////////////////////////////////
+template<typename Scalar = double>
+struct PriorCostFunctor {
+  PriorCostFunctor(const double& p,
+                   const double& xi = 1,
+                   const int &val_index = 0)
+    :p(p),
+     xi(xi),
+     val_index(val_index)
+  {
+  }
+
+  template<typename T>
+  bool operator()(const T* const s, T* residual) const{
+      residual[0] = (T)xi * (s[val_index] - (T)p);
+      return true;
+  }
+
+  double p;
+  double xi;
+  int val_index;
+};
+
+////////////////////////////////////////////////////////////////////////////////
+template<typename Scalar = double>
+struct SwitchableBinaryPoseCostFunctor {
+  SwitchableBinaryPoseCostFunctor(const Sophus::SE3d& rel_pose,
+                        const Eigen::Matrix<Scalar, 6, 6> cov = NULL)
+    : Tab_est(rel_pose),
+      cov_inv_sqrt(cov)
+  {
+  }
+
+  template<typename T>
+  bool operator()(const T* const pose1, const T* const pose2,
+                  const T* const s, T* residuals) const{
+
+    // Pose pair to optimize over
+    const Eigen::Map< const Sophus::SE3Group<T> > pose_a(pose1);
+    const Eigen::Map< const Sophus::SE3Group<T> > pose_b(pose2);
+
+    // Residual vector in tangent space
+    Eigen::Map< Eigen::Matrix<T, 6, 1> > pose_residuals(residuals);
+
+    Sophus::SE3Group<T> Tab_meas = pose_a.inverse() * pose_b;
+    pose_residuals = s[0] * cov_inv_sqrt.template cast<T>() *
         log_decoupled(Tab_meas, Tab_est.cast<T>());
 
     return true;
