@@ -204,10 +204,10 @@ GraphAndValues Masseuse::LoadPoseGraphAndLCC(
     Pose3 new_pose = prev_pose*rel;
     (*initial)[curr_pose.live_id] = new_pose;
 
-    //    std::cerr << "inserting pose: Rot: " << new_pose.rotationMatrix().eulerAngles
-    //                 (0,1,2).transpose() << " Trans: " << new_pose.translation().transpose() <<
-    //                 " at index:  " << curr_pose.live_id <<
-    //                 std::endl;
+//        std::cerr << "inserting pose: Rot: " << new_pose.rotationMatrix().eulerAngles
+//                     (0,1,2).transpose() << " Trans: " << new_pose.translation().transpose() <<
+//                     " at index:  " << curr_pose.live_id <<
+//                     std::endl;
 
     prev_pose = new_pose;
 
@@ -482,9 +482,9 @@ Error Masseuse::CalculateError(){
       Pose3 est_pose = kvp.second;
       Pose3 gt_pose = gt_poses.at(index).Twp;
 
-      Eigen::Vector6d pose_error = (est_pose * gt_pose.inverse()).log();
-      Eigen::Vector3d trans_error = pose_error.head<3>();
-      Eigen::Vector3d rot_error = pose_error.tail<3>();
+      Eigen::Vector6d pose_error = (est_pose.inverse() * gt_pose).log();
+      Eigen::Vector3d trans_error = pose_error.head<3>().cwiseAbs();
+      Eigen::Vector3d rot_error = pose_error.tail<3>().cwiseAbs();
       error.Translation()+= trans_error;
       error.Rotation()+= rot_error;
 
@@ -497,7 +497,6 @@ Error Masseuse::CalculateError(){
       if(error.MaxRotError() < rot_error.norm()){
         error.MaxRotError() = rot_error.norm();
       }
-
 
       if(index > 0){
         // add up the total distance traveled, based on the ground truth
