@@ -189,10 +189,10 @@ GraphAndValues Masseuse::LoadPoseGraphAndLCC(
       (*initial)[id] = orig;
       prev_pose = orig;
 
-      //      std::cerr << "inserting origin: Rot: " << orig.rotationMatrix().eulerAngles
-      //                   (0,1,2).transpose() << " Trans: " << orig.translation().transpose() <<
-      //                   " at index:  " << id <<
-      //                   std::endl;
+            std::cerr << "inserting origin: Rot: " << orig.rotationMatrix().eulerAngles
+                         (0,1,2).transpose() << " Trans: " << orig.translation().transpose() <<
+                         " at index:  " << id <<
+                         std::endl;
     }
 
     // Build the next vertex using the relative contstraint
@@ -203,6 +203,7 @@ GraphAndValues Masseuse::LoadPoseGraphAndLCC(
 
     Pose3 new_pose = prev_pose*rel;
     (*initial)[curr_pose.live_id] = new_pose;
+
 
     //    std::cerr << "inserting pose: Rot: " << new_pose.rotationMatrix().eulerAngles
     //                 (0,1,2).transpose() << " Trans: " << new_pose.translation().transpose() <<
@@ -476,9 +477,14 @@ Error Masseuse::CalculateError(){
     return error;
   }
 
-  if(gt_poses.size() == values->size()){
+  if(gt_poses.size() == values->size()-1){
     size_t index = 0;
     for(const auto& kvp : *values){
+
+//      if(index > gt_poses.size()-1){
+//        continue;
+//      }
+
       Pose3 est_pose = kvp.second;
       Pose3 gt_pose = gt_poses.at(index).Twp;
 

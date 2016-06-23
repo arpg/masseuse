@@ -159,7 +159,7 @@ struct Options
   string binary_output_path = "";
 
   // Debug
-  bool print_error_statistics = true;
+  bool print_error_statistics = false;
   bool print_full_report = false;
   bool print_minimizer_progress = false;
   bool check_gradients = false;
@@ -168,7 +168,7 @@ struct Options
   double rel_covariance_mult = 5e-2;
   double cov_det_thresh = 1e-35;
   double cov_z_prior = 1e-3;
-  bool use_identity_covariance = true;
+  bool use_identity_covariance = false;
 
   // Optimization switches
   bool optimize_rotations = true;

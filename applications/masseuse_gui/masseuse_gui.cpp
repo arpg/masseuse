@@ -94,7 +94,7 @@ void Run(const std::shared_ptr<masseuse::Masseuse>
   pangolin::Var<bool>           ui_show_relaxed_path("ui.Show Relaxed Path", true, true);
   pangolin::Var<bool>           ui_show_lcc_segments("ui.Show Loop Closures", false, true);
   pangolin::Var<bool>           ui_show_lcc_poses("ui.Show Loop Closure Poses", false, true);
-  pangolin::Var<bool>           ui_relax("ui.Relax", true, false);
+  pangolin::Var<bool>           ui_relax("ui.Relax", false, false);
 
   // Set up container.
   pangolin::View& container = pangolin::CreateDisplay();
