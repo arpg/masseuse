@@ -455,8 +455,8 @@ void Masseuse::PrintErrorStatistics(){
   std::cerr << "Total distance traveled (m): " << err.DistanceTraveled() <<
                std::endl;
 
-  std::cerr << "% Avg. trans error: " << err.GetAverageTransError()/
-               err.DistanceTraveled() * 100 << " %" << std::endl;
+  std::cerr << "% Avg. trans error: " << err.GetPercentAverageTansError()
+               * 100 << " %" << std::endl;
 
   std::cerr << "Max trans error (m): " << err.MaxTransError() << std::endl;
 
@@ -520,6 +520,12 @@ bool Masseuse::CalculateError(Error& error){
                                     gt_poses.at(index).Twp).translation().norm();
       }
 
+      // calculate the % average translation error up to this point
+      if(error.DistanceTraveled() > 0){
+        error.PercentAvgTranslationError()+= (trans_error.norm() /
+            error.DistanceTraveled());
+      }
+
       index++;
     }
   }else{
@@ -574,6 +580,10 @@ void Masseuse::Relax() {
     //                 values->begin()->second.translation().transpose() << std::endl;
   }else{
     std::cerr << "Not adding any prior at origin" << std::endl;
+  }
+
+  if(options.fix_first_pose){
+    problem.SetParameterBlockConstant(values->begin()->second.data());
   }
 
   // Now add a binary constraint for all relative and loop closure constraints

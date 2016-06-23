@@ -63,9 +63,21 @@ class Error {
     return distance_traveled;
   }
 
+  double& PercentAvgTranslationError(){
+    return percent_avg_trans_error;
+  }
+
   double GetAverageTransError(){
     if(num_poses > 0){
       return translation.norm()/num_poses;
+    }else{
+      return -1;
+    }
+  }
+
+  double GetPercentAverageTansError(){
+    if(num_poses > 0){
+      return percent_avg_trans_error/num_poses;
     }else{
       return -1;
     }
@@ -86,6 +98,7 @@ class Error {
     double max_rot_error = 0;
     unsigned num_poses = 0;
     double distance_traveled = 0;
+    double percent_avg_trans_error = 0;
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -163,19 +176,20 @@ struct Options
   bool print_error_statistics = true;
   bool print_full_report = false;
   bool print_brief_report = true;
-  bool print_minimizer_progress = false;
+  bool print_minimizer_progress = true;
   bool check_gradients = false;
 
   // Covariance tuning
   double rel_covariance_mult = 5e-2;
   double cov_det_thresh = 1e-39;
   double cov_z_prior = 1e-3;
-  bool use_identity_covariance = true;
+  bool use_identity_covariance = false;
 
   // Optimization switches
   bool optimize_rotations = true;
   bool enable_prior_at_origin = true;
-  bool enable_z_prior = true;
+  bool fix_first_pose = true;
+  bool enable_z_prior = false;
 
   // Switchable Constraints
   bool enable_switchable_constraints = false;

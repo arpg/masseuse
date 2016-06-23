@@ -76,6 +76,10 @@ void AttachConsoleVars(const std::shared_ptr<masseuse::Masseuse>
                               pgr->options.use_identity_covariance);
   pangolin::Var<bool>::Attach("masseuse.PrintBriefReport",
                               pgr->options.print_brief_report);
+  pangolin::Var<bool>::Attach("masseuse.FixFirstPose",
+                              pgr->options.fix_first_pose);
+
+
 
 }
 
@@ -93,10 +97,30 @@ void Run(const std::shared_ptr<masseuse::Masseuse>
 
   pangolin::Var<bool>           ui_show_gt_path("ui.Show GT Path", false, true);
   pangolin::Var<bool>           ui_show_initial_path("ui.Show Initial Path", true, true);
-  pangolin::Var<bool>           ui_show_relaxed_path("ui.Show Relaxed Path", true, true);
   pangolin::Var<bool>           ui_show_lcc_segments("ui.Show Loop Closures", false, true);
+  pangolin::Var<bool>           ui_show_relaxed_path("ui.Show Relaxed Path", true, true);
   pangolin::Var<bool>           ui_show_lcc_poses("ui.Show Loop Closure Poses", false, true);
   pangolin::Var<bool>           ui_relax("ui.Relax", false, false);
+
+  pangolin::RegisterKeyPressCallback('r', [&]() {
+   // toggle relaxed pose graph
+   ui_show_relaxed_path = !ui_show_relaxed_path;
+  });
+
+  pangolin::RegisterKeyPressCallback('i', [&]() {
+   // toggle initial pose graph
+   ui_show_initial_path = !ui_show_initial_path;
+  });
+
+  pangolin::RegisterKeyPressCallback('c', [&]() {
+   // toggle ground truth
+   ui_show_gt_path = !ui_show_gt_path;
+  });
+
+  pangolin::RegisterKeyPressCallback('l', [&]() {
+   // toggle loop closures
+   ui_show_lcc_segments = !ui_show_lcc_segments;
+  });
 
   // Set up container.
   pangolin::View& container = pangolin::CreateDisplay();
