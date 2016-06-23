@@ -160,16 +160,17 @@ struct Options
   string binary_output_path = "";
 
   // Debug
-  bool print_error_statistics = false;
+  bool print_error_statistics = true;
   bool print_full_report = false;
+  bool print_brief_report = true;
   bool print_minimizer_progress = false;
   bool check_gradients = false;
 
   // Covariance tuning
   double rel_covariance_mult = 5e-2;
-  double cov_det_thresh = 1e-35;
+  double cov_det_thresh = 1e-39;
   double cov_z_prior = 1e-3;
-  bool use_identity_covariance = false;
+  bool use_identity_covariance = true;
 
   // Optimization switches
   bool optimize_rotations = true;
@@ -181,8 +182,8 @@ struct Options
   double switch_variable_prior_cov = 0.4;
 
   // Ceres optimization options
-  bool update_state_every_iteration = false;
-  int num_iterations = 1000;
+  bool update_state_every_iteration = true;
+  int num_iterations = 500;
 
   // Huber loss delta parameter
   double huber_loss_delta = 1.0;

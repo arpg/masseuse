@@ -477,13 +477,23 @@ bool Masseuse::CalculateError(Error& error){
     return false;
   }
 
-  if(gt_poses.size() == values->size()){
+  unsigned num_poses_to_compare = values->size();
+  if(gt_poses.size() != values->size()){
+
+    num_poses_to_compare = std::min(gt_poses.size(), values->size());
+    std::cerr << "There are " << gt_poses.size() << " ground truth poses"
+              << " and " << values->size() << " optimized poses. Will only" <<
+                 " compare the first " << num_poses_to_compare << " poses." <<
+                 std::endl;
+  }
+
+  if(num_poses_to_compare > 0){
     size_t index = 0;
     for(const auto& kvp : *values){
 
-//      if(index > gt_poses.size()-1){
-//        continue;
-//      }
+      if(index >= num_poses_to_compare){
+        break;
+      }
 
       Pose3 est_pose = kvp.second;
       Pose3 gt_pose = gt_poses.at(index).Twp;
@@ -513,9 +523,7 @@ bool Masseuse::CalculateError(Error& error){
       index++;
     }
   }else{
-    std::cerr << "There are " << gt_poses.size() << " ground truth poses"
-              << " and " << values->size() << " optimized poses, cannot "
-              << "compare." << std::endl;
+    std::cerr << "No poses to compare." << std::endl;
     return false;
   }
 
@@ -720,16 +728,20 @@ void Masseuse::Relax() {
   double ceres_time = masseuse::Tic();
   ceres::Solve(ceres_options, &problem, &summary);
   ceres_time = masseuse::Toc(ceres_time);
-  fprintf(stderr, "Optimization finished in %2.3f s /n",
+  fprintf(stderr, "Optimization finished in %fs \n",
                   ceres_time);
 
   if(options.print_full_report){
     std::cerr << summary.FullReport() << std::endl;
   }
 
+  if(options.print_brief_report){
+    std::cerr << summary.BriefReport() << std::endl;
+  }
+
 
   if(options.print_error_statistics){
-    std::cerr << "AFTER REALXATION:" << std::endl;
+    std::cerr << std::endl << "AFTER REALXATION:" << std::endl;
     PrintErrorStatistics();
 
 //    if(options.enable_switchable_constraints){

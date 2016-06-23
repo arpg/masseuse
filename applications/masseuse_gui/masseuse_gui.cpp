@@ -74,6 +74,8 @@ void AttachConsoleVars(const std::shared_ptr<masseuse::Masseuse>
                               pgr->options.cov_z_prior);
   pangolin::Var<bool>::Attach("masseuse.UseIdentityCovariance",
                               pgr->options.use_identity_covariance);
+  pangolin::Var<bool>::Attach("masseuse.PrintBriefReport",
+                              pgr->options.print_brief_report);
 
 }
 
