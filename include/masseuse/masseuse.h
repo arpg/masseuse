@@ -91,11 +91,11 @@ class Error {
 class Factor {
   public:
   Factor(){
-
   }
 
   Factor(unsigned id1, unsigned id2, Pose3 rel, Matrix cov)
     : id1(id1), id2(id2), rel_pose(rel), cov(cov){
+    switch_variable = 1.0;
   }
 
   unsigned id1;
@@ -103,7 +103,7 @@ class Factor {
   Pose3 rel_pose;
   Matrix cov;
   bool isLCC = false;
-  double switch_variable = 1.0;
+  double switch_variable;
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -177,7 +177,7 @@ struct Options
 
   // Switchable Constraints
   bool enable_switchable_constraints = false;
-  double switch_variable_prior_cov = 0.1;
+  double switch_variable_prior_cov = 0.4;
 
   // Ceres optimization options
   bool update_state_every_iteration = false;

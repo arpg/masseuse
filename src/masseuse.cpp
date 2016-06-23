@@ -563,7 +563,7 @@ void Masseuse::Relax() {
   }
 
   // Now add a binary constraint for all relative and loop closure constraints
-  for(Factor f : *graph){
+  for(Factor& f : *graph){
 
     Pose3& T_a = values->at(f.id1);
     Pose3& T_b = values->at(f.id2);
