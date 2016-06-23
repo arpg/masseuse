@@ -204,15 +204,18 @@ void Run(const std::shared_ptr<masseuse::Masseuse>
     }
   }
 
-  std::cerr << segment_lcc_vec.size() << " LCC's should be plotted" <<
-               std::endl;
-
 
   while(!pangolin::ShouldQuit()) {
 
     if (pangolin::Pushed(ui_relax)) {
-      // Reload the poses
-      LoadPosesFromFile(pgr);
+      std::cerr << std::endl <<
+                   "------------------------START-----------------------" <<
+                   std::endl;
+
+      // Reload the poses, if necessary
+      if(path_output_vec.size()){
+        LoadPosesFromFile(pgr);
+      }
 
       // Relax the poses
       path_output_vec.clear();

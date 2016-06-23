@@ -88,16 +88,6 @@ inline T powiJet(const T x, const int y) {
   }
 }
 
-inline double Tic() {
-  struct timeval tv;
-  gettimeofday(&tv, 0);
-  return tv.tv_sec + 1e-6 * (tv.tv_usec);
-}
-
-inline double Toc(double tic) {
-  return Tic() - tic;
-}
-
 ///////////////////////////////////////////////////////////////////////////////
 // this function implements d vee(log(A * exp(x) * B) ) / dx,which is in R^{6x6}
 template<typename Scalar = double>

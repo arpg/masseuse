@@ -21,11 +21,11 @@ const std::vector<AbsPose>& Masseuse::GetGroundTruth(){
 ////////////////////////////////////////////////////////////////////////
 void Masseuse::SaveAbsPG(string out_file) {
   if (output_abs_poses.size() == 0) {
-    std::cout << "No poses in the pose graph yet, skip\n";
+    std::cerr << "No poses in the pose graph yet, skip\n";
     return;
   }
 
-  std::cout << "Saving " << output_abs_poses.size() << " absolute poses."
+  std::cerr << "Saving " << output_abs_poses.size() << " absolute poses."
             << std::endl;
 
   // get the pose files name
@@ -46,7 +46,7 @@ void Masseuse::SaveAbsPG(string out_file) {
   }
 
   fclose(fp);
-  std::cout << "Finished Saving Pose Graph to " << sPoseFile
+  std::cerr << "Finished Saving Pose Graph to " << sPoseFile
             << std::endl;
 }
 
@@ -83,7 +83,7 @@ void Masseuse::LoadGroundTruth(const string& gt_file){
   }
 
   // Finished loading poses
-  std::cout << "[LoadGroundTruth] Read in "
+  std::cerr << "[LoadGroundTruth] Read in "
             << gt_poses.size() << " ground truth poses" <<
                std::endl;
 
@@ -107,7 +107,7 @@ GraphAndValues Masseuse::LoadPoseGraphAndLCC(
     throw invalid_argument("LoadPoseGraphAndLCC:  Cannot load the origin!");
   }
 
-  std::cerr << "read origin: " << origin.transpose() << std::endl;
+//  std::cerr << "read origin: " << origin.transpose() << std::endl;
 
   unsigned numRelPoses = 0;
   unsigned numLCC = 0;
@@ -124,7 +124,7 @@ GraphAndValues Masseuse::LoadPoseGraphAndLCC(
     }
   }
 
-  std::cout << "Will load " << numRelPoses << " rel poses, "
+  std::cerr << "Will load " << numRelPoses << " rel poses, "
             << numLCC << " loop closure constranits." << std::endl;
 
   relative_poses.clear();
@@ -170,7 +170,7 @@ GraphAndValues Masseuse::LoadPoseGraphAndLCC(
   }
   fclose(fp);
 
-  std::cout << "Finished loading Pose Graph from  " << pose_graph_file
+  std::cerr << "Finished loading Pose Graph from  " << pose_graph_file
             << std::endl;
 
   std::shared_ptr<Values> initial(new Values);
@@ -189,10 +189,10 @@ GraphAndValues Masseuse::LoadPoseGraphAndLCC(
       (*initial)[id] = orig;
       prev_pose = orig;
 
-            std::cerr << "inserting origin: Rot: " << orig.rotationMatrix().eulerAngles
-                         (0,1,2).transpose() << " Trans: " << orig.translation().transpose() <<
-                         " at index:  " << id <<
-                         std::endl;
+//            std::cerr << "inserting origin: Rot: " << orig.rotationMatrix().eulerAngles
+//                         (0,1,2).transpose() << " Trans: " << orig.translation().transpose() <<
+//                         " at index:  " << id <<
+//                         std::endl;
     }
 
     // Build the next vertex using the relative contstraint
@@ -378,7 +378,7 @@ GraphAndValues Masseuse::LoadPoseGraphAndLCC(
 //    graph->push_back(wrong_lcc);
 
 
-    std::cerr << "Did not use " << discarded_lcc << "LCC." << std::endl;
+    std::cerr << "Did not use " << discarded_lcc << " LCC." << std::endl;
 
   }
 
@@ -438,7 +438,11 @@ void Masseuse::SaveResultsG2o(){
 ////////////////////////////////////////////////////////////////////////
 void Masseuse::PrintErrorStatistics(){
   // calclate the error
-  Error err = CalculateError();
+  Error err;
+  if(!CalculateError(err)){
+     std::cerr << "Unable to calculate error metrics." << std::endl;
+     return;
+  }
 
   std::cerr << "======================ERROR REPORT=====================" <<
                std::endl;
@@ -464,19 +468,16 @@ void Masseuse::PrintErrorStatistics(){
 }
 
 ////////////////////////////////////////////////////////////////////////
-Error Masseuse::CalculateError(){
-  // Tries to calculate a pose-pose error to the ground truth.
-
-  Error error;
+bool Masseuse::CalculateError(Error& error){
 
   // First check if we have a ground truth to compare against
   if(!gt_poses.size()){
     std::cerr << "Unable to calculate error, no ground truth provided." <<
                  std::endl;
-    return error;
+    return false;
   }
 
-  if(gt_poses.size() == values->size()-1){
+  if(gt_poses.size() == values->size()){
     size_t index = 0;
     for(const auto& kvp : *values){
 
@@ -515,9 +516,10 @@ Error Masseuse::CalculateError(){
     std::cerr << "There are " << gt_poses.size() << " ground truth poses"
               << " and " << values->size() << " optimized poses, cannot "
               << "compare." << std::endl;
+    return false;
   }
 
-  return error;
+  return true;
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -675,8 +677,6 @@ void Masseuse::Relax() {
   }
 
 
-
-  std::cout << "Optimizing the factor graph" << std::endl;
   ceres::Solver::Options ceres_options;
   ceres_options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
   ceres_options.minimizer_progress_to_stdout = options.print_minimizer_progress;
@@ -690,35 +690,38 @@ void Masseuse::Relax() {
     PrintErrorStatistics();
     std::cerr << std::endl;
 
-    if(options.enable_switchable_constraints){
-      std::cerr << "switch variables BEFORE optimizing: " << std::endl;
-      for(const Factor& f : *graph){
-        if(f.isLCC){
-          fprintf(stderr, "%1.3f ",
-                  f.switch_variable);
-        }
-      }
-      std::cerr << std::endl;
-    }
+//    if(options.enable_switchable_constraints){
+//      std::cerr << "switch variables BEFORE optimizing: " << std::endl;
+//      for(const Factor& f : *graph){
+//        if(f.isLCC){
+//          fprintf(stderr, "%1.3f ",
+//                  f.switch_variable);
+//        }
+//      }
+//      std::cerr << std::endl;
+//    }
 
-    double initial_cost = 0.0;
-    std::vector<double> residuals(problem.NumResiduals());
-    problem.Evaluate(Problem::EvaluateOptions(), &initial_cost, &residuals
-                     , NULL, NULL);
+//    double initial_cost = 0.0;
+//    std::vector<double> residuals(problem.NumResiduals());
+//    problem.Evaluate(Problem::EvaluateOptions(), &initial_cost, &residuals
+//                     , NULL, NULL);
 
 
-    std::cerr << "num residual blocks: " << problem.NumResidualBlocks() <<
-                 std::endl;
-    std::cerr << "Cost BEFORE optimizing: " << initial_cost << std::endl;
-    //    Eigen::Map<Eigen::VectorXd> vec_residuals(residuals.data(), residuals.size());
-    //    std::cerr << "Residuals: " << vec_residuals << std::endl;
+//    std::cerr << "num residual blocks: " << problem.NumResidualBlocks() <<
+//                 std::endl;
+//    std::cerr << "Cost BEFORE optimizing: " << initial_cost << std::endl;
 
   }
 
 
   ceres::Solver::Summary summary;
+
+  std::cerr << "Relaxing graph...." << std::endl;
+  double ceres_time = masseuse::Tic();
   ceres::Solve(ceres_options, &problem, &summary);
-  std::cerr << "Optimization done.\n\n";
+  ceres_time = masseuse::Toc(ceres_time);
+  fprintf(stderr, "Optimization finished in %2.3f s /n",
+                  ceres_time);
 
   if(options.print_full_report){
     std::cerr << summary.FullReport() << std::endl;
@@ -729,23 +732,23 @@ void Masseuse::Relax() {
     std::cerr << "AFTER REALXATION:" << std::endl;
     PrintErrorStatistics();
 
-    if(options.enable_switchable_constraints){
-      std::cerr << "switch variables AFTER optimizing: " << std::endl;
-      for(const Factor& f : *graph){
-        if(f.isLCC){
-          fprintf(stderr, "%1.3f ",
-                  f.switch_variable);
-        }
-      }
-      std::cerr << std::endl;
-    }
+//    if(options.enable_switchable_constraints){
+//      std::cerr << "switch variables AFTER optimizing: " << std::endl;
+//      for(const Factor& f : *graph){
+//        if(f.isLCC){
+//          fprintf(stderr, "%1.3f ",
+//                  f.switch_variable);
+//        }
+//      }
+//      std::cerr << std::endl;
+//    }
 
-    double final_cost = 0.0;
-    std::vector<double> residuals(problem.NumResiduals());
-    problem.Evaluate(Problem::EvaluateOptions(), &final_cost, &residuals,
-                     NULL, NULL);
+//    double final_cost = 0.0;
+//    std::vector<double> residuals(problem.NumResiduals());
+//    problem.Evaluate(Problem::EvaluateOptions(), &final_cost, &residuals,
+//                     NULL, NULL);
 
-    std::cerr << "Cost AFTER optimizing: " << final_cost << std::endl;
+    //std::cerr << "Cost AFTER optimizing: " << final_cost << std::endl;
     //    Eigen::Map<Eigen::VectorXd> vec_residuals(residuals.data(), residuals.size());
     //    std::cerr << "Residuals: " << vec_residuals << std::endl;
 

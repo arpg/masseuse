@@ -10,6 +10,7 @@
 #include <ceres/normal_prior.h>
 #include <unsupported/Eigen/MatrixFunctions>
 #include "AutoDiffLocalParamSE3.h"
+#include "TicToc.h"
 
 using namespace std;
 
@@ -203,7 +204,7 @@ public:
     const Values& GetValues();
     const Graph& GetGraph();
     const std::vector<AbsPose>& GetGroundTruth();
-    Error CalculateError();
+    bool CalculateError(Error &error);
     void PrintErrorStatistics();
     void Relax();
     void LoadGroundTruth(const string& gt_file);
