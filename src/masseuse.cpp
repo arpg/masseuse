@@ -70,6 +70,7 @@ void Masseuse::LoadGroundTruth(const string& gt_file){
             gt_file.c_str());
   }
 
+  gt_poses.clear();
   std::string line;
   while(std::getline(input_file, line)){
     AbsPose absPose;
@@ -111,6 +112,7 @@ void Masseuse::LoadPoseGraph(const string& pg_file){
     throw invalid_argument("LoadPg:  error loading file");
   }
 
+  comparison_pose_graph.clear();
   // save all abs poses
   for (unsigned i = 0; i != numPoses; i++) {
     AbsPose absPose;
@@ -263,7 +265,7 @@ GraphAndValues Masseuse::LoadPoseGraphAndLCC(
 
     Matrix m = curr_pose.cov;
     if(m.sum() == 0 || m.determinant() <= 0 || std::isnan(m.determinant())
-       || m.determinant() > options.cov_det_thresh){
+       /*|| m.determinant() > options.cov_det_thresh*/){
       //      std::cerr << "ICP failed for rel pose between " << id1 << " and " << id2 <<
       //                   "Setting fixed covaraince..." <<
       //                   std::endl;
@@ -288,7 +290,11 @@ GraphAndValues Masseuse::LoadPoseGraphAndLCC(
     graph->push_back(factor);
 
   }
-  std::cerr << "ICP failed " << numICPfailed << " times." << std::endl;
+
+  std::cerr << std::setprecision(3) << std::fixed <<"ICP failed " << numICPfailed << " times " <<
+               "out of " << relative_poses.size() << " ( " << (double)numICPfailed/(double)relative_poses.size() * 100 <<
+             "% )" << std::endl;
+
 
   if( read_lcc ){
     std::cerr << "Reading LLC." << std::endl;
@@ -318,18 +324,7 @@ GraphAndValues Masseuse::LoadPoseGraphAndLCC(
         continue;
       }
 
-      //ZZZZZZZZZ Temp for specific dataset, remove this:
-      //      std::set<int> remove_ids;
-      //      int ids[] = {5880, 5850, 5840, 5830, 4020, 4000, 3990, 3980, 3950,
-      //                   5800, 5810, 5830};
-      //      remove_ids.insert(ids, ids+12);
-      //      if(remove_ids.find(id1) != remove_ids.end() ||
-      //         remove_ids.find(id2) != remove_ids.end()){
-      //        std::cerr << "LLC with refID: " << id1 << " and liveID: " <<
-      //                     id2 << " cov det: " << m.determinant() << std::endl;
-      //        discarded_lcc++;
-      //        continue;
-      //      }
+
 
 
       // check if the lcc is between far away poses. If so, downweight it's
@@ -346,12 +341,6 @@ GraphAndValues Masseuse::LoadPoseGraphAndLCC(
       //      std::cerr << "distance between poses for lcc: " << ii <<
       //                   " between poses " <<  id1 << " and " << id2 << ": "
       //                << lcc.translation().norm() << std::endl;
-
-
-
-      //      SharedNoiseModel model = noiseModel::Gaussian::Information(m);
-      //      NonlinearFactor::shared_ptr factor(
-      //          new BetweenFactor<Pose3>(id1, id2, lcc, model));
 
       // Create a new factor between poses
       if(options.use_identity_covariance){
@@ -424,7 +413,9 @@ GraphAndValues Masseuse::LoadPoseGraphAndLCC(
 //    graph->push_back(wrong_lcc);
 
 
-    std::cerr << "Did not use " << discarded_lcc << " LCC." << std::endl;
+    std::cerr << std::setprecision(3) << std::fixed <<"Did not use " << discarded_lcc << " LCC " <<
+                 "out of " << numLCC << " ( " << (double)discarded_lcc/(double)numLCC * 100 <<
+               "% )" << std::endl;
 
   }
 

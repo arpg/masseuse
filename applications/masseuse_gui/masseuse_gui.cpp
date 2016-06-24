@@ -38,8 +38,10 @@ struct GuiVars{
 };
 
 GuiVars gui_vars;
+masseuse::Values initial_values;
 
 void LoadPosesFromFile(std::shared_ptr<masseuse::Masseuse> relaxer);
+void LoadPoseGraphs(std::shared_ptr<masseuse::Masseuse> relaxer);
 
 ///////////////////////////////////////////////////////////////////////////////
 void AttachConsoleVars(const std::shared_ptr<masseuse::Masseuse>
@@ -90,6 +92,69 @@ void AttachConsoleVars(const std::shared_ptr<masseuse::Masseuse>
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+void DisplayData(const std::shared_ptr<masseuse::Masseuse>
+                 pgr){
+  std::vector<Sophus::SE3d>& path_gt_vec =
+      gui_vars.gl_path_gt.GetPathRef();
+  std::vector<Sophus::SE3d>& path_compare_vec =
+      gui_vars.gl_path_compare.GetPathRef();
+  std::vector<std::tuple<Sophus::SE3d, Sophus::SE3d, Eigen::Vector4f>>&
+      segment_lcc_vec = gui_vars.gl_segment_lcc.GetSegmentRef();
+  std::vector<std::pair<Sophus::SE3d, Sophus::SE3d>>& pose_segment_lcc_vec =
+      gui_vars.gl_segment_lcc.GetPoseSegmentRef();
+  std::vector<Sophus::SE3d>& path_input_vec =
+      gui_vars.gl_path_input.GetPathRef();
+
+  // Dispay the initial pose values
+  if(initial_values.size()){
+    path_input_vec.clear();
+    for(const auto& kvp : initial_values){
+      const masseuse::Pose3 p = kvp.second;
+      path_input_vec.push_back(p);
+    }
+  }
+
+  // Display the Ground Truth poses
+  if(pgr->GetGroundTruth().size()){
+    path_gt_vec.clear();
+    for(masseuse::AbsPose pose : pgr->GetGroundTruth()){
+      path_gt_vec.push_back(pose.Twp);
+    }
+  }
+
+  // Display all the loop closure constraints
+  const masseuse::Graph& graph = pgr->GetGraph();
+  pose_segment_lcc_vec.clear();
+  segment_lcc_vec.clear();
+  for (const masseuse::Factor& f : graph){
+    if(f.isLCC){
+
+      // Draws a line between poses that have a LCC
+      masseuse::Pose3 T_a = pgr->GetValues().at(f.id1);
+      masseuse::Pose3 T_b = pgr->GetValues().at(f.id2);
+
+      // Enabled constraints are yellow, disabled constraints are white.
+      Eigen::Vector4f color;
+      color << 1.0f, 1.0f, -(float)f.switch_variable+1.0f, 1.0f;
+      segment_lcc_vec.push_back(std::make_tuple(T_a, T_b, color));
+
+      // Draws a line to the projected pose, where the LCC is saying the
+      // other pose should be.
+      const masseuse::Pose3& T_ab = f.rel_pose;
+      masseuse::Pose3 T_b_lcc = T_a * T_ab;
+      pose_segment_lcc_vec.push_back(std::make_pair(T_a, T_b_lcc));
+    }
+  }
+
+  // Draw the comparison pose graph, if available
+  if(pgr->GetComparisonPoses().size()){
+    for(const masseuse::AbsPose& p : pgr->GetComparisonPoses()){
+      path_compare_vec.push_back(p.Twp);
+    }
+  }
+}
+
+///////////////////////////////////////////////////////////////////////////////
 void Run(const std::shared_ptr<masseuse::Masseuse>
          pgr){
 
@@ -106,6 +171,7 @@ void Run(const std::shared_ptr<masseuse::Masseuse>
   pangolin::Var<bool>           ui_show_lcc_segments("ui.Show Loop Closures", false, true);
   pangolin::Var<bool>           ui_show_relaxed_path("ui.Show Relaxed Path", true, true);
   pangolin::Var<bool>           ui_show_lcc_poses("ui.Show Loop Closure Poses", false, true);
+  pangolin::Var<bool>           ui_reload("ui.Reload Data", false, false);
   pangolin::Var<bool>           ui_relax("ui.Relax", false, false);
   bool ui_show_comparison_graph = false;
 
@@ -172,6 +238,8 @@ void Run(const std::shared_ptr<masseuse::Masseuse>
   gui_vars.gl_grid = SceneGraph::GLGrid(300, 1);
   gui_vars.gl_grid.SetVisible(false);
 
+  DisplayData(pgr);
+
   // Toggle grid keyboard callback
   pangolin::RegisterKeyPressCallback('1',
                                      [&]() {
@@ -194,72 +262,19 @@ void Run(const std::shared_ptr<masseuse::Masseuse>
         new SceneGraph::HandlerSceneGraph(gui_vars.gl_graph, stacks3d))
       .SetDrawFunction(SceneGraph::ActivateDrawFunctor(gui_vars.gl_graph, stacks3d));
 
-  // Add all subviews to container.
   container.AddDisplay(gui_vars.view_3d);
-
-  std::vector<Sophus::SE3d>& path_gt_vec =
-      gui_vars.gl_path_gt.GetPathRef();
-  std::vector<Sophus::SE3d>& path_input_vec =
-      gui_vars.gl_path_input.GetPathRef();
+  gui_vars.gl_graph.AddChild(&gui_vars.gl_grid);
   std::vector<Sophus::SE3d>& path_output_vec =
       gui_vars.gl_path_output.GetPathRef();
-  std::vector<Sophus::SE3d>& path_compare_vec =
-      gui_vars.gl_path_compare.GetPathRef();
-  std::vector<std::tuple<Sophus::SE3d, Sophus::SE3d, Eigen::Vector4f>>&
-      segment_lcc_vec = gui_vars.gl_segment_lcc.GetSegmentRef();
-  std::vector<std::pair<Sophus::SE3d, Sophus::SE3d>>& pose_segment_lcc_vec =
-      gui_vars.gl_segment_lcc.GetPoseSegmentRef();
-
-  gui_vars.gl_graph.AddChild(&gui_vars.gl_grid);
-
-  // Display the Ground Truth poses
-  if(pgr->GetGroundTruth().size()){
-    path_gt_vec.clear();
-    for(masseuse::AbsPose pose : pgr->GetGroundTruth()){
-      path_gt_vec.push_back(pose.Twp);
-    }
-  }
-
-  // Dispay the initial pose values
-  if(pgr->GetValues().size()){
-    path_input_vec.clear();
-    for(const auto& kvp : pgr->GetValues()){
-      const masseuse::Pose3 p = kvp.second;
-      path_input_vec.push_back(p);
-    }
-  }
-
-  // Display all the loop closure constraints
-  const masseuse::Graph& graph = pgr->GetGraph();
-  for (const masseuse::Factor& f : graph){
-    if(f.isLCC){
-
-      // Draws a line between poses that have a LCC
-      masseuse::Pose3 T_a = pgr->GetValues().at(f.id1);
-      masseuse::Pose3 T_b = pgr->GetValues().at(f.id2);
-
-      // Enabled constraints are yellow, disabled constraints are white.
-      Eigen::Vector4f color;
-      color << 1.0f, 1.0f, -(float)f.switch_variable+1.0f, 1.0f;
-      segment_lcc_vec.push_back(std::make_tuple(T_a, T_b, color));
-
-      // Draws a line to the projected pose, where the LCC is saying the
-      // other pose should be.
-      const masseuse::Pose3& T_ab = f.rel_pose;
-      masseuse::Pose3 T_b_lcc = T_a * T_ab;
-      pose_segment_lcc_vec.push_back(std::make_pair(T_a, T_b_lcc));
-    }
-  }
-
-  // Draw the comparison pose graph, if available
-  if(pgr->GetComparisonPoses().size()){
-    for(const masseuse::AbsPose& p : pgr->GetComparisonPoses()){
-      path_compare_vec.push_back(p.Twp);
-    }
-  }
-
 
   while(!pangolin::ShouldQuit()) {
+
+    if (pangolin::Pushed(ui_reload)) {
+      std::cerr << "Reloading all data..." << std::endl;
+      LoadPosesFromFile(pgr);
+      LoadPoseGraphs(pgr);
+      DisplayData(pgr);
+    }
 
     if (pangolin::Pushed(ui_relax)) {
       std::cerr << std::endl <<
@@ -275,35 +290,13 @@ void Run(const std::shared_ptr<masseuse::Masseuse>
       path_output_vec.clear();
       pgr->Relax();
 
+      DisplayData(pgr);
+
       // Display the relaxed pose graph
       if(pgr->GetValues().size()){
         for(const auto& kvp : pgr->GetValues()){
           const masseuse::Pose3 p = kvp.second;
           path_output_vec.push_back(p);
-        }
-      }
-
-      // Update the color and position for the loop closures
-      const masseuse::Graph& graph = pgr->GetGraph();
-      segment_lcc_vec.clear();
-      pose_segment_lcc_vec.clear();
-      for (const masseuse::Factor& f : graph){
-        if(f.isLCC){
-
-          // Draws a line between poses that have a LCC
-          masseuse::Pose3 T_a = pgr->GetValues().at(f.id1);
-          masseuse::Pose3 T_b = pgr->GetValues().at(f.id2);
-
-          // Enabled constraints are yellow, disabled constraints are white.
-          Eigen::Vector4f color;
-          color << 1.0f, 1.0f, -(float)f.switch_variable+1.0f, 1.0f;
-          segment_lcc_vec.push_back(std::make_tuple(T_a, T_b, color));
-
-          // Draws a line to the projected pose, where the LCC is saying the
-          // other pose should be.
-          const masseuse::Pose3& T_ab = f.rel_pose;
-          masseuse::Pose3 T_b_lcc = T_a * T_ab;
-          pose_segment_lcc_vec.push_back(std::make_pair(T_a, T_b_lcc));
         }
       }
 
@@ -336,11 +329,28 @@ void LoadPosesFromFile(std::shared_ptr<masseuse::Masseuse> relaxer){
   // Load in the poses
   if(!FLAGS_in.empty()){
     relaxer->LoadPosesFromFile(FLAGS_in);
+
+    // copy initial values for displaying
+    initial_values = relaxer->GetValues();
   }else{
     std::cerr << "No data provided. Please pass in the input "
               << "poses file in the --in command line arg." <<
                  std::endl;
     exit(1);
+  }
+
+}
+
+///////////////////////////////////////////////////////////////////////////////
+void LoadPoseGraphs(std::shared_ptr<masseuse::Masseuse> relaxer){
+  // Load ground truth
+  if(!FLAGS_gt.empty()){
+    relaxer->LoadGroundTruth(FLAGS_gt);
+  }
+
+  // Load comparison pose graph, if available
+  if(!FLAGS_compare.empty()){
+    relaxer->LoadPoseGraph(FLAGS_compare);
   }
 
 }
@@ -357,17 +367,11 @@ int main(int argc, char* argv[])
   std::shared_ptr<masseuse::Masseuse>
       relaxer(new masseuse::Masseuse(options));
 
+  // load in poses and loop closures to optimize over
   LoadPosesFromFile(relaxer);
 
-  // Load ground truth
-  if(!FLAGS_gt.empty()){
-    relaxer->LoadGroundTruth(FLAGS_gt);
-  }
-
-  // Load comparison pose graph, if available
-  if(!FLAGS_compare.empty()){
-    relaxer->LoadPoseGraph(FLAGS_compare);
-  }
+  // Load in ground truth and any comparison pose graphs
+  LoadPoseGraphs(relaxer);
 
   AttachConsoleVars(relaxer);
   Run(relaxer);
