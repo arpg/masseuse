@@ -200,6 +200,11 @@ void Run(const std::shared_ptr<masseuse::Masseuse>
     ui_show_comparison_graph = !ui_show_comparison_graph;
   });
 
+  pangolin::RegisterKeyPressCallback('p', [&]() {
+    // show the lcc projected pose grpah
+    ui_show_lcc_poses = !ui_show_lcc_poses;
+  });
+
   // Set up container.
   pangolin::View& container = pangolin::CreateDisplay();
   container.SetBounds(0, 1, pangolin::Attach::Pix(panel_size), 0.75);

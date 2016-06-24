@@ -181,7 +181,7 @@ struct Options
 
   // Covariance tuning
   double rel_covariance_mult = 0.16;
-  double cov_det_thresh = 1e-39;
+  double cov_det_thresh = 5e-39;
   double cov_z_prior = 1e-3;
   bool use_identity_covariance = false;
 
@@ -192,8 +192,8 @@ struct Options
   bool enable_z_prior = false;
 
   // Switchable Constraints
-  bool enable_switchable_constraints = false;
-  double switch_variable_prior_cov = 1e-3;
+  bool enable_switchable_constraints = true;
+  double switch_variable_prior_cov = 4e-4;
 
   // Ceres optimization options
   bool update_state_every_iteration = false;
