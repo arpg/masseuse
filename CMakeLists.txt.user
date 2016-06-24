@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE QtCreatorProject>
-<!-- Written by QtCreator 3.3.0, 2016-06-23T15:11:21. -->
+<!-- Written by QtCreator 3.3.0, 2016-06-23T19:10:29. -->
 <qtcreator>
  <data>
   <variable>EnvironmentId</variable>
@@ -208,7 +208,7 @@
      <value type="int">14</value>
     </valuelist>
     <value type="QString" key="CMakeProjectManager.CMakeRunConfiguation.Title">masseuse_gui</value>
-    <value type="QString" key="CMakeProjectManager.CMakeRunConfiguration.Arguments">--in /Users/fernando/Projects/Robotics/DATA/ZOOX/BigLoop/pose_graph.txt --out /Users/fernando/Projects/Robotics/DATA/ZOOX/BigLoop/relaxed_pose_graph.txt --gt /Users/fernando/Projects/Robotics/DATA/ZOOX/BigLoop/pose_graph_clam.txt</value>
+    <value type="QString" key="CMakeProjectManager.CMakeRunConfiguration.Arguments">--in /Users/fernando/Projects/Robotics/DATA/ZOOX/BigLoop/pose_graph.txt --out /Users/fernando/Projects/Robotics/DATA/ZOOX/BigLoop/relaxed_pose_graph.txt --gt /Users/fernando/Projects/Robotics/DATA/ZOOX/BigLoop/pose_graph_clam.txt --compare /Users/fernando/Projects/Robotics/DATA/ZOOX/BigLoop/relaxed_pose_graph.txt </value>
     <value type="bool" key="CMakeProjectManager.CMakeRunConfiguration.UseTerminal">false</value>
     <value type="QString" key="CMakeProjectManager.CMakeRunConfiguration.UserWorkingDirectory"></value>
     <value type="int" key="PE.EnvironmentAspect.Base">2</value>

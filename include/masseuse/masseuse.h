@@ -174,13 +174,13 @@ struct Options
 
   // Debug
   bool print_error_statistics = true;
-  bool print_full_report = false;
-  bool print_brief_report = true;
-  bool print_minimizer_progress = true;
+  bool print_full_report = true;
+  bool print_brief_report = false;
+  bool print_minimizer_progress = false;
   bool check_gradients = false;
 
   // Covariance tuning
-  double rel_covariance_mult = 5e-2;
+  double rel_covariance_mult = 0.16;
   double cov_det_thresh = 1e-39;
   double cov_z_prior = 1e-3;
   bool use_identity_covariance = false;
@@ -193,18 +193,18 @@ struct Options
 
   // Switchable Constraints
   bool enable_switchable_constraints = false;
-  double switch_variable_prior_cov = 0.4;
+  double switch_variable_prior_cov = 1e-3;
 
   // Ceres optimization options
-  bool update_state_every_iteration = true;
-  int num_iterations = 500;
+  bool update_state_every_iteration = false;
+  int num_iterations = 200;
+  double absolute_error_tol = 0;
+  double function_tolearnce = 1e-6; // default: 1e-6
+  double gradient_tolerance = 1e-10; // default: 1e-10
+  double parameter_tolerance= 1e-8;  // default: 1e-8
 
   // Huber loss delta parameter
   double huber_loss_delta = 1.0;
-
-  // Currently unused
-  double abs_error_tol = 1e-15;
-  double rel_error_tol = 1e-15;
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -219,10 +219,12 @@ public:
     const Values& GetValues();
     const Graph& GetGraph();
     const std::vector<AbsPose>& GetGroundTruth();
+    const std::vector<AbsPose>& GetComparisonPoses();
     bool CalculateError(Error &error);
     void PrintErrorStatistics();
     void Relax();
     void LoadGroundTruth(const string& gt_file);
+    void LoadPoseGraph(const string& pg_file);
 
     Options options;
 private:
@@ -235,6 +237,7 @@ private:
     std::map<string, RelPose> added_LCC;
     std::vector<RelPose> loop_closure_constraints;
     std::vector<AbsPose> gt_poses;
+    std::vector<AbsPose> comparison_pose_graph;
     Eigen::Vector6d origin;
     std::shared_ptr<Graph> graph;
     std::shared_ptr<Values> values;

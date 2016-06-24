@@ -201,7 +201,7 @@ struct PriorCostFunctor {
 
   template<typename T>
   bool operator()(const T* const s, T* residual) const{
-      residual[0] = (T)xi * (s[val_index] - (T)p);
+      residual[0] = ceres::sqrt((T)1.0/(T)xi) * (s[val_index] - (T)p);
       return true;
   }
 

@@ -13,6 +13,11 @@ const Graph& Masseuse::GetGraph(){
   return *graph;
 }
 
+//////////////////////////////////////////////////////////////////////////
+const std::vector<AbsPose>& Masseuse::GetComparisonPoses(){
+  return comparison_pose_graph;
+}
+
 ////////////////////////////////////////////////////////////////////////
 const std::vector<AbsPose>& Masseuse::GetGroundTruth(){
   return gt_poses;
@@ -86,6 +91,47 @@ void Masseuse::LoadGroundTruth(const string& gt_file){
   std::cerr << "[LoadGroundTruth] Read in "
             << gt_poses.size() << " ground truth poses" <<
                std::endl;
+
+}
+
+////////////////////////////////////////////////////////////////////////
+void Masseuse::LoadPoseGraph(const string& pg_file){
+
+  FILE *fp = (FILE *)fopen(pg_file.c_str(), "rb");
+
+
+  if (fp == NULL) {
+    fprintf(stderr, "Could not open file %s\n",
+            pg_file.c_str());
+  }
+
+  unsigned numPoses = 0;
+  if (fread(&numPoses, sizeof(unsigned), 1, fp) != 1) {
+    printf("error! Cannot load num poses.\n");
+    throw invalid_argument("LoadPg:  error loading file");
+  }
+
+  // save all abs poses
+  for (unsigned i = 0; i != numPoses; i++) {
+    AbsPose absPose;
+    if (fread(&absPose.id, sizeof(unsigned), 1, fp) != 1) {
+      throw invalid_argument("LoadPg:  error loading file");
+    }
+    if (fread(&absPose.pose_vec, sizeof(Eigen::Vector6d), 1, fp) != 1) {
+      throw invalid_argument("LoadPg:  error loading file");
+    }
+    if (fread(&absPose.cov, sizeof(Eigen::Matrix6d), 1, fp) != 1) {
+      throw invalid_argument("LoadPg:  error loading file");
+    }
+
+    // Create an SE3 pose
+    Point3 p(absPose.pose_vec.head<3>());
+    Rot3 r(absPose.pose_vec[3], absPose.pose_vec[4], absPose.pose_vec[5]);
+    Pose3 Twp(r, p);
+    absPose.Twp = Twp;
+
+    comparison_pose_graph.push_back(absPose);
+  }
 
 }
 
@@ -462,6 +508,24 @@ void Masseuse::PrintErrorStatistics(){
 
   std::cerr << "Max rot error (deg): " << err.MaxRotError() << std::endl;
 
+  if(options.enable_switchable_constraints){
+    int num_disabled_constraints = 0;
+    int num_lcc = 0;
+    for(const Factor& f : *graph){
+      if(f.isLCC){
+        num_lcc++;
+        if(f.switch_variable < 0.1){
+          num_disabled_constraints++;
+        }
+      }
+    }
+    fprintf(stderr, "Number of LCC that were disabled: %d ( %f%% )\n",
+                      num_disabled_constraints,
+            (float)num_disabled_constraints/(float)num_lcc * 100.0f
+            );
+
+  }
+
   std::cerr << "======================================================" <<
                std::endl;
 
@@ -697,11 +761,15 @@ void Masseuse::Relax() {
 
   ceres::Solver::Options ceres_options;
   ceres_options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
+  ceres_options.trust_region_strategy_type = ceres::LEVENBERG_MARQUARDT;
   ceres_options.minimizer_progress_to_stdout = options.print_minimizer_progress;
   ceres_options.max_num_iterations = options.num_iterations;
   ceres_options.update_state_every_iteration =
       options.update_state_every_iteration;
   ceres_options.check_gradients = options.check_gradients;
+  ceres_options.function_tolerance = options.function_tolearnce;
+  ceres_options.parameter_tolerance = options.parameter_tolerance;
+  ceres_options.gradient_tolerance = options.gradient_tolerance;
 
   if(options.print_error_statistics){
     std::cerr << "BEFORE RELAXATION:" << std::endl;

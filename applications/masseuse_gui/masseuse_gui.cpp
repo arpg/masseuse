@@ -19,7 +19,8 @@
 DEFINE_string(out, "", "path to save output file");
 DEFINE_string(in, "", "input poses file (relative poses)");
 DEFINE_string(gt, "", "ground truth poses (absolute)");
-DEFINE_string(g2o, "", "output directory for g2o files");
+DEFINE_string(compare, "", "pose graph for comparison, not used in optimization");
+//DEFINE_string(g2o, "", "output directory for g2o files");
 
 /*----------------------------------------------------------------------------*/
 
@@ -31,6 +32,7 @@ struct GuiVars{
   GLPathAbs gl_path_gt;
   GLPathAbs gl_path_input;
   GLPathAbs gl_path_output;
+  GLPathAbs gl_path_compare;
   GLPathSegment gl_segment_lcc;
   SceneGraph::GLGrid gl_grid;
 };
@@ -41,7 +43,7 @@ void LoadPosesFromFile(std::shared_ptr<masseuse::Masseuse> relaxer);
 
 ///////////////////////////////////////////////////////////////////////////////
 void AttachConsoleVars(const std::shared_ptr<masseuse::Masseuse>
-             pgr){
+                       pgr){
   pangolin::Var<bool>::Attach("masseuse.OptimizeRotations",
                               pgr->options.optimize_rotations);
   pangolin::Var<bool>::Attach("masseuse.EnableSwitchableConstraints",
@@ -57,13 +59,13 @@ void AttachConsoleVars(const std::shared_ptr<masseuse::Masseuse>
   pangolin::Var<bool>::Attach("masseuse.PrintErrorStatistics",
                               pgr->options.print_error_statistics);
   pangolin::Var<double>::Attach("masseuse.StiffnessFactor",
-                              pgr->options.rel_covariance_mult);
+                                pgr->options.rel_covariance_mult);
   pangolin::Var<double>::Attach("masseuse.CovarianceDeterminantThreshold",
-                              pgr->options.cov_det_thresh);
+                                pgr->options.cov_det_thresh);
   pangolin::Var<int>::Attach("masseuse.NumIterations",
-                              pgr->options.num_iterations);
+                             pgr->options.num_iterations);
   pangolin::Var<double>::Attach("masseuse.SwitchVariablePriorCovariance",
-                              pgr->options.switch_variable_prior_cov);
+                                pgr->options.switch_variable_prior_cov);
   pangolin::Var<bool>::Attach("masseuse.CheckGradients",
                               pgr->options.check_gradients);
   pangolin::Var<bool>::Attach("masseuse.UpdateStateEveryIteration",
@@ -71,15 +73,19 @@ void AttachConsoleVars(const std::shared_ptr<masseuse::Masseuse>
   pangolin::Var<bool>::Attach("masseuse.EnableZPrior",
                               pgr->options.enable_z_prior);
   pangolin::Var<double>::Attach("masseuse.ZPriorCovariance",
-                              pgr->options.cov_z_prior);
+                                pgr->options.cov_z_prior);
   pangolin::Var<bool>::Attach("masseuse.UseIdentityCovariance",
                               pgr->options.use_identity_covariance);
   pangolin::Var<bool>::Attach("masseuse.PrintBriefReport",
                               pgr->options.print_brief_report);
   pangolin::Var<bool>::Attach("masseuse.FixFirstPose",
                               pgr->options.fix_first_pose);
-
-
+  pangolin::Var<double>::Attach("masseuse.FunctionTol",
+                                pgr->options.function_tolearnce);
+  pangolin::Var<double>::Attach("masseuse.GradientTol",
+                                pgr->options.gradient_tolerance);
+  pangolin::Var<double>::Attach("masseuse.ParameterTol",
+                                pgr->options.parameter_tolerance);
 
 }
 
@@ -101,25 +107,31 @@ void Run(const std::shared_ptr<masseuse::Masseuse>
   pangolin::Var<bool>           ui_show_relaxed_path("ui.Show Relaxed Path", true, true);
   pangolin::Var<bool>           ui_show_lcc_poses("ui.Show Loop Closure Poses", false, true);
   pangolin::Var<bool>           ui_relax("ui.Relax", false, false);
+  bool ui_show_comparison_graph = false;
 
   pangolin::RegisterKeyPressCallback('r', [&]() {
-   // toggle relaxed pose graph
-   ui_show_relaxed_path = !ui_show_relaxed_path;
+    // toggle relaxed pose graph
+    ui_show_relaxed_path = !ui_show_relaxed_path;
   });
 
   pangolin::RegisterKeyPressCallback('i', [&]() {
-   // toggle initial pose graph
-   ui_show_initial_path = !ui_show_initial_path;
+    // toggle initial pose graph
+    ui_show_initial_path = !ui_show_initial_path;
   });
 
-  pangolin::RegisterKeyPressCallback('c', [&]() {
-   // toggle ground truth
-   ui_show_gt_path = !ui_show_gt_path;
+  pangolin::RegisterKeyPressCallback('g', [&]() {
+    // toggle ground truth
+    ui_show_gt_path = !ui_show_gt_path;
   });
 
   pangolin::RegisterKeyPressCallback('l', [&]() {
-   // toggle loop closures
-   ui_show_lcc_segments = !ui_show_lcc_segments;
+    // toggle loop closures
+    ui_show_lcc_segments = !ui_show_lcc_segments;
+  });
+
+  pangolin::RegisterKeyPressCallback('c', [&]() {
+    // show the comparison pose grpah
+    ui_show_comparison_graph = !ui_show_comparison_graph;
   });
 
   // Set up container.
@@ -144,11 +156,15 @@ void Run(const std::shared_ptr<masseuse::Masseuse>
   gui_vars.gl_path_output.SetPoseDisplay(0);
   gui_vars.gl_path_output.SetLineColor(1.0, 0.0, 0.0);
 
+  gui_vars.gl_path_compare.SetPoseDisplay(0);
+  gui_vars.gl_path_compare.SetLineColor(0.0, 1.0, 1.0);
+
   gui_vars.gl_segment_lcc.SetLineColor(1.0, 1.0, 0.0);
 
   gui_vars.gl_graph.AddChild(&gui_vars.gl_path_gt);
   gui_vars.gl_graph.AddChild(&gui_vars.gl_path_input);
   gui_vars.gl_graph.AddChild(&gui_vars.gl_path_output);
+  gui_vars.gl_graph.AddChild(&gui_vars.gl_path_compare);
   gui_vars.gl_graph.AddChild(&gui_vars.gl_segment_lcc);
 
 
@@ -157,7 +173,7 @@ void Run(const std::shared_ptr<masseuse::Masseuse>
   gui_vars.gl_grid.SetVisible(false);
 
   // Toggle grid keyboard callback
-  pangolin::RegisterKeyPressCallback('g',
+  pangolin::RegisterKeyPressCallback('1',
                                      [&]() {
     if (gui_vars.gl_grid.IsVisible()) {
       gui_vars.gl_grid.SetVisible(false);
@@ -187,8 +203,10 @@ void Run(const std::shared_ptr<masseuse::Masseuse>
       gui_vars.gl_path_input.GetPathRef();
   std::vector<Sophus::SE3d>& path_output_vec =
       gui_vars.gl_path_output.GetPathRef();
-  std::vector<std::pair<Sophus::SE3d, Sophus::SE3d>>& segment_lcc_vec =
-      gui_vars.gl_segment_lcc.GetSegmentRef();
+  std::vector<Sophus::SE3d>& path_compare_vec =
+      gui_vars.gl_path_compare.GetPathRef();
+  std::vector<std::tuple<Sophus::SE3d, Sophus::SE3d, Eigen::Vector4f>>&
+      segment_lcc_vec = gui_vars.gl_segment_lcc.GetSegmentRef();
   std::vector<std::pair<Sophus::SE3d, Sophus::SE3d>>& pose_segment_lcc_vec =
       gui_vars.gl_segment_lcc.GetPoseSegmentRef();
 
@@ -198,8 +216,7 @@ void Run(const std::shared_ptr<masseuse::Masseuse>
   if(pgr->GetGroundTruth().size()){
     path_gt_vec.clear();
     for(masseuse::AbsPose pose : pgr->GetGroundTruth()){
-      masseuse::Pose3 p = pose.Twp;
-      path_gt_vec.push_back(p);
+      path_gt_vec.push_back(pose.Twp);
     }
   }
 
@@ -214,19 +231,30 @@ void Run(const std::shared_ptr<masseuse::Masseuse>
 
   // Display all the loop closure constraints
   const masseuse::Graph& graph = pgr->GetGraph();
-  for (const masseuse::Factor f : graph){
+  for (const masseuse::Factor& f : graph){
     if(f.isLCC){
 
       // Draws a line between poses that have a LCC
       masseuse::Pose3 T_a = pgr->GetValues().at(f.id1);
       masseuse::Pose3 T_b = pgr->GetValues().at(f.id2);
-      segment_lcc_vec.push_back(std::make_pair(T_a, T_b));
+
+      // Enabled constraints are yellow, disabled constraints are white.
+      Eigen::Vector4f color;
+      color << 1.0f, 1.0f, -(float)f.switch_variable+1.0f, 1.0f;
+      segment_lcc_vec.push_back(std::make_tuple(T_a, T_b, color));
 
       // Draws a line to the projected pose, where the LCC is saying the
       // other pose should be.
       const masseuse::Pose3& T_ab = f.rel_pose;
       masseuse::Pose3 T_b_lcc = T_a * T_ab;
       pose_segment_lcc_vec.push_back(std::make_pair(T_a, T_b_lcc));
+    }
+  }
+
+  // Draw the comparison pose graph, if available
+  if(pgr->GetComparisonPoses().size()){
+    for(const masseuse::AbsPose& p : pgr->GetComparisonPoses()){
+      path_compare_vec.push_back(p.Twp);
     }
   }
 
@@ -254,6 +282,31 @@ void Run(const std::shared_ptr<masseuse::Masseuse>
           path_output_vec.push_back(p);
         }
       }
+
+      // Update the color and position for the loop closures
+      const masseuse::Graph& graph = pgr->GetGraph();
+      segment_lcc_vec.clear();
+      pose_segment_lcc_vec.clear();
+      for (const masseuse::Factor& f : graph){
+        if(f.isLCC){
+
+          // Draws a line between poses that have a LCC
+          masseuse::Pose3 T_a = pgr->GetValues().at(f.id1);
+          masseuse::Pose3 T_b = pgr->GetValues().at(f.id2);
+
+          // Enabled constraints are yellow, disabled constraints are white.
+          Eigen::Vector4f color;
+          color << 1.0f, 1.0f, -(float)f.switch_variable+1.0f, 1.0f;
+          segment_lcc_vec.push_back(std::make_tuple(T_a, T_b, color));
+
+          // Draws a line to the projected pose, where the LCC is saying the
+          // other pose should be.
+          const masseuse::Pose3& T_ab = f.rel_pose;
+          masseuse::Pose3 T_b_lcc = T_a * T_ab;
+          pose_segment_lcc_vec.push_back(std::make_pair(T_a, T_b_lcc));
+        }
+      }
+
     }
 
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -263,6 +316,7 @@ void Run(const std::shared_ptr<masseuse::Masseuse>
     gui_vars.gl_path_gt.SetVisible(ui_show_gt_path);
     gui_vars.gl_path_input.SetVisible(ui_show_initial_path);
     gui_vars.gl_path_output.SetVisible(ui_show_relaxed_path);
+    gui_vars.gl_path_compare.SetVisible(ui_show_comparison_graph);
     gui_vars.gl_segment_lcc.DrawSegments(ui_show_lcc_segments);
     gui_vars.gl_segment_lcc.DrawPoses(ui_show_lcc_poses);
 
@@ -270,6 +324,7 @@ void Run(const std::shared_ptr<masseuse::Masseuse>
     gui_vars.gl_path_gt.DrawAxis(draw_axis);
     gui_vars.gl_path_input.DrawAxis(draw_axis);
     gui_vars.gl_path_output.DrawAxis(draw_axis);
+    gui_vars.gl_path_compare.DrawAxis(draw_axis);
 
 
     pangolin::FinishFrame();
@@ -307,6 +362,11 @@ int main(int argc, char* argv[])
   // Load ground truth
   if(!FLAGS_gt.empty()){
     relaxer->LoadGroundTruth(FLAGS_gt);
+  }
+
+  // Load comparison pose graph, if available
+  if(!FLAGS_compare.empty()){
+    relaxer->LoadPoseGraph(FLAGS_compare);
   }
 
   AttachConsoleVars(relaxer);
