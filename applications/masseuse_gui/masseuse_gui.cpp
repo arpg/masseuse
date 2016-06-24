@@ -100,8 +100,8 @@ void DisplayData(const std::shared_ptr<masseuse::Masseuse>
       gui_vars.gl_path_compare.GetPathRef();
   std::vector<std::tuple<Sophus::SE3d, Sophus::SE3d, Eigen::Vector4f>>&
       segment_lcc_vec = gui_vars.gl_segment_lcc.GetSegmentRef();
-  std::vector<std::pair<Sophus::SE3d, Sophus::SE3d>>& pose_segment_lcc_vec =
-      gui_vars.gl_segment_lcc.GetPoseSegmentRef();
+  std::vector<std::tuple<Sophus::SE3d, Sophus::SE3d, Eigen::Vector4f>>&
+      pose_segment_lcc_vec = gui_vars.gl_segment_lcc.GetPoseSegmentRef();
   std::vector<Sophus::SE3d>& path_input_vec =
       gui_vars.gl_path_input.GetPathRef();
 
@@ -142,7 +142,7 @@ void DisplayData(const std::shared_ptr<masseuse::Masseuse>
       // other pose should be.
       const masseuse::Pose3& T_ab = f.rel_pose;
       masseuse::Pose3 T_b_lcc = T_a * T_ab;
-      pose_segment_lcc_vec.push_back(std::make_pair(T_a, T_b_lcc));
+      pose_segment_lcc_vec.push_back(std::make_tuple(T_b, T_b_lcc, color));
     }
   }
 
