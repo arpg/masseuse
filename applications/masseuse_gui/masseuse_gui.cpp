@@ -46,8 +46,6 @@ void LoadPoseGraphs(std::shared_ptr<masseuse::Masseuse> relaxer);
 ///////////////////////////////////////////////////////////////////////////////
 void AttachConsoleVars(const std::shared_ptr<masseuse::Masseuse>
                        pgr){
-  pangolin::Var<bool>::Attach("masseuse.OptimizeRotations",
-                              pgr->options.optimize_rotations);
   pangolin::Var<bool>::Attach("masseuse.EnableSwitchableConstraints",
                               pgr->options.enable_switchable_constraints);
   pangolin::Var<bool>::Attach("masseuse.PrintMinimizerProgress",
@@ -88,6 +86,8 @@ void AttachConsoleVars(const std::shared_ptr<masseuse::Masseuse>
                                 pgr->options.gradient_tolerance);
   pangolin::Var<double>::Attach("masseuse.ParameterTol",
                                 pgr->options.parameter_tolerance);
+  pangolin::Var<bool>::Attach("masseuse.PrintComparisonErrorStatistics",
+                                pgr->options.print_comparison_error_statistics);
 
 }
 
@@ -146,10 +146,11 @@ void DisplayData(const std::shared_ptr<masseuse::Masseuse>
     }
   }
 
+  path_compare_vec.clear();
   // Draw the comparison pose graph, if available
-  if(pgr->GetComparisonPoses().size()){
-    for(const masseuse::AbsPose& p : pgr->GetComparisonPoses()){
-      path_compare_vec.push_back(p.Twp);
+  if(pgr->GetComparisonValues().size()){
+    for(const auto& kvp : pgr->GetComparisonValues()){
+      path_compare_vec.push_back(kvp.second);
     }
   }
 }
@@ -356,6 +357,10 @@ void LoadPoseGraphs(std::shared_ptr<masseuse::Masseuse> relaxer){
   // Load comparison pose graph, if available
   if(!FLAGS_compare.empty()){
     relaxer->LoadPoseGraph(FLAGS_compare);
+
+    if(relaxer->options.print_comparison_error_statistics){
+      relaxer->PrintErrorStatistics(relaxer->GetComparisonValues());
+    }
   }
 
 }

@@ -178,6 +178,7 @@ struct Options
   bool print_brief_report = false;
   bool print_minimizer_progress = false;
   bool check_gradients = false;
+  bool print_comparison_error_statistics = true;
 
   // Covariance tuning
   double rel_covariance_mult = 0.16;
@@ -186,7 +187,6 @@ struct Options
   bool use_identity_covariance = false;
 
   // Optimization switches
-  bool optimize_rotations = true;
   bool enable_prior_at_origin = true;
   bool fix_first_pose = true;
   bool enable_z_prior = false;
@@ -219,9 +219,9 @@ public:
     const Values& GetValues();
     const Graph& GetGraph();
     const std::vector<AbsPose>& GetGroundTruth();
-    const std::vector<AbsPose>& GetComparisonPoses();
-    bool CalculateError(Error &error);
-    void PrintErrorStatistics();
+    const Values &GetComparisonValues();
+    bool CalculateError(Error &error, const Values &values);
+    void PrintErrorStatistics(const Values &values);
     void Relax();
     void LoadGroundTruth(const string& gt_file);
     void LoadPoseGraph(const string& pg_file);
@@ -237,7 +237,7 @@ private:
     std::map<string, RelPose> added_LCC;
     std::vector<RelPose> loop_closure_constraints;
     std::vector<AbsPose> gt_poses;
-    std::vector<AbsPose> comparison_pose_graph;
+    Values comparison_values;
     Eigen::Vector6d origin;
     std::shared_ptr<Graph> graph;
     std::shared_ptr<Values> values;
