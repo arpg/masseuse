@@ -2,6 +2,7 @@
 
 #include <Eigen/Eigen>
 #include <sophus/se3.hpp>
+#include <tuple>
 
 #include <SceneGraph/GLObject.h>
 
@@ -16,6 +17,7 @@ public:
   GLPathSegment()
   {
     m_bInitGLComplete = false;
+    m_bPerSegmentLineColor = true;
     m_fLineColor(0) = 1.0;
     m_fLineColor(1) = 1.0;
     m_fLineColor(2) = 0.0;
@@ -42,18 +44,26 @@ public:
         glPushMatrix();
         glEnable( GL_LINE_SMOOTH );
         state.glLineWidth(1.5f);
-        glColor4f( m_fLineColor(0), m_fLineColor(1), m_fLineColor(2), m_fLineColor(3) );
+        if(!m_bPerSegmentLineColor){
+          glColor4f( m_fLineColor(0), m_fLineColor(1), m_fLineColor(2), m_fLineColor(3) );
+        }
 
-        for(auto& pair : m_vSegments){
+        for(auto& tuple : m_vSegments){
           glBegin( GL_LINE_STRIP );
 
+          if(m_bPerSegmentLineColor){
+            // Get the color for this segment
+            Eigen::Vector4f& color = std::get<2>(tuple);
+            glColor4f( color(0), color(1), color(2), color(3) );
+          }
+
           // First pose
-          Sophus::SE3d& Pose1 = pair.first;
+          Sophus::SE3d& Pose1 = std::get<0>(tuple);
           fPose = Pose1.matrix().cast<float>();
           glVertex3f( fPose(0,3), fPose(1,3), fPose(2,3) );
 
           // Second pose
-          Sophus::SE3d& Pose2 = pair.second;
+          Sophus::SE3d& Pose2 = std::get<1>(tuple);
           fPose = Pose2.matrix().cast<float>();
           glVertex3f( fPose(0,3), fPose(1,3), fPose(2,3) );
 
@@ -67,20 +77,28 @@ public:
 
 
         glEnable( GL_LINE_SMOOTH );
-
-        for( auto& pair : m_vPoseSegments ) {
+        if(!m_bPerSegmentLineColor){
+          glColor4f( m_fLineColor(0), m_fLineColor(1), m_fLineColor(2), m_fLineColor(3) );
+        }
+        for( auto& tuple : m_vPoseSegments ) {
 
           glPushMatrix();
           // First, draw a dotted line segment from pose a to pose b_lcc
           glPushAttrib(GL_ENABLE_BIT);
           state.glLineWidth(1.5f);
-          glColor4f( m_fLineColor(0), m_fLineColor(1), m_fLineColor(2), m_fLineColor(3) );
+
+          // Get the color for this segment
+          if(m_bPerSegmentLineColor){
+            Eigen::Vector4f& color = std::get<2>(tuple);
+            glColor4f( color(0), color(1), color(2), color(3) );
+          }
+
           glLineStipple(4, 0xAAAA);
           glEnable(GL_LINE_STIPPLE);
           glBegin( GL_LINES );
 
-          Sophus::SE3d& Pose1 = pair.first;
-          Sophus::SE3d& Pose2 = pair.second;
+          Sophus::SE3d& Pose1 = std::get<0>(tuple);
+          Sophus::SE3d& Pose2 = std::get<1>(tuple);
           fPose = Pose1.matrix().cast<float>();
           glVertex3f( fPose(0,3), fPose(1,3), fPose(2,3) );
 
@@ -113,12 +131,12 @@ public:
     }
   }
 
-  std::vector<std::pair<Sophus::SE3d, Sophus::SE3d>>& GetSegmentRef()
+  std::vector<std::tuple<Sophus::SE3d, Sophus::SE3d, Eigen::Vector4f>>& GetSegmentRef()
   {
     return m_vSegments;
   }
 
-  std::vector<std::pair<Sophus::SE3d, Sophus::SE3d>>& GetPoseSegmentRef()
+  std::vector<std::tuple<Sophus::SE3d, Sophus::SE3d, Eigen::Vector4f>>& GetPoseSegmentRef()
   {
     return m_vPoseSegments;
   }
@@ -138,6 +156,11 @@ public:
     m_bDrawSegments = Val;
   }
 
+  void PerSegmentLineColor( bool Val )
+  {
+    m_bPerSegmentLineColor = Val;
+  }
+
 
   void SetLineColor( float R, float G, float B, float A = 1.0 )
   {
@@ -152,7 +175,8 @@ private:
   bool                            m_bDrawPoses;
   bool                            m_bDrawSegments;
   bool                            m_bDrawIndices;
+  bool                            m_bPerSegmentLineColor;
   Eigen::Vector4f                 m_fLineColor;
-  std::vector<std::pair<Sophus::SE3d, Sophus::SE3d>>   m_vSegments;
-  std::vector<std::pair<Sophus::SE3d, Sophus::SE3d>>   m_vPoseSegments;
+  std::vector<std::tuple<Sophus::SE3d, Sophus::SE3d, Eigen::Vector4f>> m_vSegments;
+  std::vector<std::tuple<Sophus::SE3d, Sophus::SE3d, Eigen::Vector4f>> m_vPoseSegments;
 };

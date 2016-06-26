@@ -52,6 +52,29 @@ inline Eigen::Matrix<Scalar, 4, 1> MultHomogeneous(
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+Eigen::MatrixXd  eye( size_t m, size_t n) {
+  return Eigen::MatrixXd::Identity(m, n);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+inline Eigen::MatrixXd eye( size_t m ) { return eye(m,m); }
+
+///////////////////////////////////////////////////////////////////////////////
+Eigen::MatrixXd RtR(const Eigen::MatrixXd &A)
+{
+  Eigen::LLT<Eigen::MatrixXd> llt(A);
+  return llt.matrixU();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+Eigen::MatrixXd inverseSqrt(const Eigen::MatrixXd& A) {
+  Eigen::LLT<Eigen::MatrixXd> llt(A);
+  Eigen::MatrixXd inv = eye(A.rows());
+  llt.matrixU().solveInPlace<Eigen::OnTheRight>(inv);
+  return inv.transpose();
+}
+
+///////////////////////////////////////////////////////////////////////////////
 template<typename Scalar = double>
 inline Scalar powi(const Scalar x, const int y) {
   if (y == 0) {
@@ -86,16 +109,6 @@ inline T powiJet(const T x, const int y) {
     }
     return ret;
   }
-}
-
-inline double Tic() {
-  struct timeval tv;
-  gettimeofday(&tv, 0);
-  return tv.tv_sec + 1e-6 * (tv.tv_usec);
-}
-
-inline double Toc(double tic) {
-  return Tic() - tic;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

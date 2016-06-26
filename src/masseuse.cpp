@@ -13,6 +13,11 @@ const Graph& Masseuse::GetGraph(){
   return *graph;
 }
 
+//////////////////////////////////////////////////////////////////////////
+const Values& Masseuse::GetComparisonValues(){
+  return comparison_values;
+}
+
 ////////////////////////////////////////////////////////////////////////
 const std::vector<AbsPose>& Masseuse::GetGroundTruth(){
   return gt_poses;
@@ -21,11 +26,11 @@ const std::vector<AbsPose>& Masseuse::GetGroundTruth(){
 ////////////////////////////////////////////////////////////////////////
 void Masseuse::SaveAbsPG(string out_file) {
   if (output_abs_poses.size() == 0) {
-    std::cout << "No poses in the pose graph yet, skip\n";
+    std::cerr << "No poses in the pose graph yet, skip\n";
     return;
   }
 
-  std::cout << "Saving " << output_abs_poses.size() << " absolute poses."
+  std::cerr << "Saving " << output_abs_poses.size() << " absolute poses."
             << std::endl;
 
   // get the pose files name
@@ -46,7 +51,7 @@ void Masseuse::SaveAbsPG(string out_file) {
   }
 
   fclose(fp);
-  std::cout << "Finished Saving Pose Graph to " << sPoseFile
+  std::cerr << "Finished Saving Pose Graph to " << sPoseFile
             << std::endl;
 }
 
@@ -65,6 +70,7 @@ void Masseuse::LoadGroundTruth(const string& gt_file){
             gt_file.c_str());
   }
 
+  gt_poses.clear();
   std::string line;
   while(std::getline(input_file, line)){
     AbsPose absPose;
@@ -83,9 +89,51 @@ void Masseuse::LoadGroundTruth(const string& gt_file){
   }
 
   // Finished loading poses
-  std::cout << "[LoadGroundTruth] Read in "
+  std::cerr << "[LoadGroundTruth] Read in "
             << gt_poses.size() << " ground truth poses" <<
                std::endl;
+
+}
+
+////////////////////////////////////////////////////////////////////////
+void Masseuse::LoadPoseGraph(const string& pg_file){
+
+  FILE *fp = (FILE *)fopen(pg_file.c_str(), "rb");
+
+
+  if (fp == NULL) {
+    fprintf(stderr, "Could not open file %s\n",
+            pg_file.c_str());
+  }
+
+  unsigned numPoses = 0;
+  if (fread(&numPoses, sizeof(unsigned), 1, fp) != 1) {
+    printf("error! Cannot load num poses.\n");
+    throw invalid_argument("LoadPg:  error loading file");
+  }
+
+  comparison_values.clear();
+  // save all abs poses
+  for (unsigned i = 0; i != numPoses; i++) {
+    AbsPose absPose;
+    if (fread(&absPose.id, sizeof(unsigned), 1, fp) != 1) {
+      throw invalid_argument("LoadPg:  error loading file");
+    }
+    if (fread(&absPose.pose_vec, sizeof(Eigen::Vector6d), 1, fp) != 1) {
+      throw invalid_argument("LoadPg:  error loading file");
+    }
+    if (fread(&absPose.cov, sizeof(Eigen::Matrix6d), 1, fp) != 1) {
+      throw invalid_argument("LoadPg:  error loading file");
+    }
+
+    // Create an SE3 pose
+    Point3 p(absPose.pose_vec.head<3>());
+    Rot3 r(absPose.pose_vec[3], absPose.pose_vec[4], absPose.pose_vec[5]);
+    Pose3 Twp(r, p);
+    absPose.Twp = Twp;
+
+    comparison_values[i] = Twp;
+  }
 
 }
 
@@ -107,7 +155,7 @@ GraphAndValues Masseuse::LoadPoseGraphAndLCC(
     throw invalid_argument("LoadPoseGraphAndLCC:  Cannot load the origin!");
   }
 
-  std::cerr << "read origin: " << origin.transpose() << std::endl;
+  //  std::cerr << "read origin: " << origin.transpose() << std::endl;
 
   unsigned numRelPoses = 0;
   unsigned numLCC = 0;
@@ -124,7 +172,7 @@ GraphAndValues Masseuse::LoadPoseGraphAndLCC(
     }
   }
 
-  std::cout << "Will load " << numRelPoses << " rel poses, "
+  std::cerr << "Will load " << numRelPoses << " rel poses, "
             << numLCC << " loop closure constranits." << std::endl;
 
   relative_poses.clear();
@@ -170,7 +218,7 @@ GraphAndValues Masseuse::LoadPoseGraphAndLCC(
   }
   fclose(fp);
 
-  std::cout << "Finished loading Pose Graph from  " << pose_graph_file
+  std::cerr << "Finished loading Pose Graph from  " << pose_graph_file
             << std::endl;
 
   std::shared_ptr<Values> initial(new Values);
@@ -189,10 +237,10 @@ GraphAndValues Masseuse::LoadPoseGraphAndLCC(
       (*initial)[id] = orig;
       prev_pose = orig;
 
-      //      std::cerr << "inserting origin: Rot: " << orig.rotationMatrix().eulerAngles
-      //                   (0,1,2).transpose() << " Trans: " << orig.translation().transpose() <<
-      //                   " at index:  " << id <<
-      //                   std::endl;
+      //            std::cerr << "inserting origin: Rot: " << orig.rotationMatrix().eulerAngles
+      //                         (0,1,2).transpose() << " Trans: " << orig.translation().transpose() <<
+      //                         " at index:  " << id <<
+      //                         std::endl;
     }
 
     // Build the next vertex using the relative contstraint
@@ -204,10 +252,10 @@ GraphAndValues Masseuse::LoadPoseGraphAndLCC(
     Pose3 new_pose = prev_pose*rel;
     (*initial)[curr_pose.live_id] = new_pose;
 
-//        std::cerr << "inserting pose: Rot: " << new_pose.rotationMatrix().eulerAngles
-//                     (0,1,2).transpose() << " Trans: " << new_pose.translation().transpose() <<
-//                     " at index:  " << curr_pose.live_id <<
-//                     std::endl;
+    //    std::cerr << "inserting pose: Rot: " << new_pose.rotationMatrix().eulerAngles
+    //                 (0,1,2).transpose() << " Trans: " << new_pose.translation().transpose() <<
+    //                 " at index:  " << curr_pose.live_id <<
+    //                 std::endl;
 
     prev_pose = new_pose;
 
@@ -217,7 +265,7 @@ GraphAndValues Masseuse::LoadPoseGraphAndLCC(
 
     Matrix m = curr_pose.cov;
     if(m.sum() == 0 || m.determinant() <= 0 || std::isnan(m.determinant())
-       || m.determinant() > options.cov_det_thresh){
+       /*|| m.determinant() > options.cov_det_thresh*/){
       //      std::cerr << "ICP failed for rel pose between " << id1 << " and " << id2 <<
       //                   "Setting fixed covaraince..." <<
       //                   std::endl;
@@ -228,8 +276,8 @@ GraphAndValues Masseuse::LoadPoseGraphAndLCC(
       numICPfailed++;
     }
 
-    //    std::cerr <<  "Adding binary constraint between id: " << id1 << " and " <<
-    //                  id2 << std::endl << "with cov det:" << m.determinant() << std::endl;
+    //        std::cerr <<  "Adding binary constraint between id: " << id1 << " and " <<
+    //                      id2 << std::endl << "with cov: \n" << m << std::endl;
 
     // Create a new factor between poses
     if(options.use_identity_covariance){
@@ -242,7 +290,11 @@ GraphAndValues Masseuse::LoadPoseGraphAndLCC(
     graph->push_back(factor);
 
   }
-  std::cerr << "ICP failed " << numICPfailed << " times." << std::endl;
+
+  std::cerr << std::setprecision(3) << std::fixed <<"ICP failed " << numICPfailed << " times " <<
+               "out of " << relative_poses.size() << " ( " << (double)numICPfailed/(double)relative_poses.size() * 100 <<
+               "% )" << std::endl;
+
 
   if( read_lcc ){
     std::cerr << "Reading LLC." << std::endl;
@@ -272,20 +324,6 @@ GraphAndValues Masseuse::LoadPoseGraphAndLCC(
         continue;
       }
 
-      //ZZZZZZZZZ Temp for specific dataset, remove this:
-      //      std::set<int> remove_ids;
-      //      int ids[] = {5880, 5850, 5840, 5830, 4020, 4000, 3990, 3980, 3950,
-      //                   5800, 5810, 5830};
-      //      remove_ids.insert(ids, ids+12);
-      //      if(remove_ids.find(id1) != remove_ids.end() ||
-      //         remove_ids.find(id2) != remove_ids.end()){
-      //        std::cerr << "LLC with refID: " << id1 << " and liveID: " <<
-      //                     id2 << " cov det: " << m.determinant() << std::endl;
-      //        discarded_lcc++;
-      //        continue;
-      //      }
-
-
       // check if the lcc is between far away poses. If so, downweight it's
       // covariance.
 
@@ -301,12 +339,6 @@ GraphAndValues Masseuse::LoadPoseGraphAndLCC(
       //                   " between poses " <<  id1 << " and " << id2 << ": "
       //                << lcc.translation().norm() << std::endl;
 
-
-
-      //      SharedNoiseModel model = noiseModel::Gaussian::Information(m);
-      //      NonlinearFactor::shared_ptr factor(
-      //          new BetweenFactor<Pose3>(id1, id2, lcc, model));
-
       // Create a new factor between poses
       if(options.use_identity_covariance){
         m.setIdentity();
@@ -315,9 +347,13 @@ GraphAndValues Masseuse::LoadPoseGraphAndLCC(
       Factor lcc_factor(id1, id2, lcc, m);
       lcc_factor.isLCC = true;
 
-
       graph->push_back(lcc_factor);
       curr_lcc.ext_id = graph->size()-1;
+
+
+      //      std::cerr << std::scientific <<
+      //                   "Adding lcc between id: " << id1 << " and " <<
+      //                    id2 << std::endl << "with cov: \n" << lcc_factor.cov << std::endl;
 
       //m_addedLCC[keyFromId(id2)] = curr_lcc;
 
@@ -353,32 +389,34 @@ GraphAndValues Masseuse::LoadPoseGraphAndLCC(
 
     }
 
-//    //ZZZZZZZZZZZZZ Temp, add wrong LCC to test switchable constraints
-//    unsigned id1 = 480;
-//    unsigned id2 = 870;
-//    Pose3& T2 = initial->at(id2);
+    //    //ZZZZZZZZZZZZZ Temp, add wrong LCC to test switchable constraints
+    //    unsigned id1 = 480;
+    //    unsigned id2 = 870;
+    //    Pose3& T2 = initial->at(id2);
 
-//    Pose3& T1 = initial->at(id1);
+    //    Pose3& T1 = initial->at(id1);
 
-//    Pose3 T12 = T1.inverse() * T2;
-
-
-//    // Add random values to the translation
-//    T12.translation()[0] += 5;
-//    T12.translation()[1] -= 2;
-//    T12.translation()[3] += 7;
-
-//    // Rotate the pose by an arbitrary amount
-//    Sophus::SO3d rot(0.5, 0.7, 0.1);
-
-//    T12.rotationMatrix() *= rot.matrix();
-//    Factor wrong_lcc(id1, id2, T12, Eigen::Matrix6d::Identity());
-//    wrong_lcc.isLCC = true;
-//    // now add the wrong LCC to the graph
-//    graph->push_back(wrong_lcc);
+    //    Pose3 T12 = T1.inverse() * T2;
 
 
-    std::cerr << "Did not use " << discarded_lcc << "LCC." << std::endl;
+    //    // Add random values to the translation
+    //    T12.translation()[0] += 5;
+    //    T12.translation()[1] -= 2;
+    //    T12.translation()[3] += 7;
+
+    //    // Rotate the pose by an arbitrary amount
+    //    Sophus::SO3d rot(0.5, 0.7, 0.1);
+
+    //    T12.rotationMatrix() *= rot.matrix();
+    //    Factor wrong_lcc(id1, id2, T12, Eigen::Matrix6d::Identity());
+    //    wrong_lcc.isLCC = true;
+    //    // now add the wrong LCC to the graph
+    //    graph->push_back(wrong_lcc);
+
+
+    std::cerr << std::setprecision(3) << std::fixed <<"Did not use " << discarded_lcc << " LCC " <<
+                 "out of " << numLCC << " ( " << (double)discarded_lcc/(double)numLCC * 100 <<
+                 "% )" << std::endl;
 
   }
 
@@ -436,9 +474,13 @@ void Masseuse::SaveResultsG2o(){
 }
 
 ////////////////////////////////////////////////////////////////////////
-void Masseuse::PrintErrorStatistics(){
+void Masseuse::PrintErrorStatistics(const Values& values){
   // calclate the error
-  Error err = CalculateError();
+  Error err;
+  if(!CalculateError(err, values)){
+    std::cerr << "Unable to calculate error metrics." << std::endl;
+    return;
+  }
 
   std::cerr << "======================ERROR REPORT=====================" <<
                std::endl;
@@ -451,12 +493,30 @@ void Masseuse::PrintErrorStatistics(){
   std::cerr << "Total distance traveled (m): " << err.DistanceTraveled() <<
                std::endl;
 
-  std::cerr << "% Avg. trans error: " << err.GetAverageTransError()/
-               err.DistanceTraveled() * 100 << " %" << std::endl;
+  std::cerr << "% Avg. trans error: " << err.GetPercentAverageTansError()
+               * 100 << " %" << std::endl;
 
   std::cerr << "Max trans error (m): " << err.MaxTransError() << std::endl;
 
   std::cerr << "Max rot error (deg): " << err.MaxRotError() << std::endl;
+
+  if(options.enable_switchable_constraints){
+    int num_disabled_constraints = 0;
+    int num_lcc = 0;
+    for(const Factor& f : *graph){
+      if(f.isLCC){
+        num_lcc++;
+        if(f.switch_variable < 0.1){
+          num_disabled_constraints++;
+        }
+      }
+    }
+    fprintf(stderr, "Number of LCC that were disabled: %d ( %f%% )\n",
+            num_disabled_constraints,
+            (float)num_disabled_constraints/(float)num_lcc * 100.0f
+            );
+
+  }
 
   std::cerr << "======================================================" <<
                std::endl;
@@ -464,21 +524,33 @@ void Masseuse::PrintErrorStatistics(){
 }
 
 ////////////////////////////////////////////////////////////////////////
-Error Masseuse::CalculateError(){
-  // Tries to calculate a pose-pose error to the ground truth.
-
-  Error error;
+bool Masseuse::CalculateError(Error& error, const Values& values){
 
   // First check if we have a ground truth to compare against
   if(!gt_poses.size()){
     std::cerr << "Unable to calculate error, no ground truth provided." <<
                  std::endl;
-    return error;
+    return false;
   }
 
-  if(gt_poses.size() == values->size()){
+  unsigned num_poses_to_compare = values.size();
+  if(gt_poses.size() != values.size()){
+
+    num_poses_to_compare = std::min(gt_poses.size(), values.size());
+    std::cerr << "There are " << gt_poses.size() << " ground truth poses"
+              << " and " << values.size() << " optimized poses. Will only" <<
+                 " compare the first " << num_poses_to_compare << " poses." <<
+                 std::endl;
+  }
+
+  if(num_poses_to_compare > 0){
     size_t index = 0;
-    for(const auto& kvp : *values){
+    for(const auto& kvp : values){
+
+      if(index >= num_poses_to_compare){
+        break;
+      }
+
       Pose3 est_pose = kvp.second;
       Pose3 gt_pose = gt_poses.at(index).Twp;
 
@@ -504,15 +576,20 @@ Error Masseuse::CalculateError(){
                                     gt_poses.at(index).Twp).translation().norm();
       }
 
+      // calculate the % average translation error up to this point
+      if(error.DistanceTraveled() > 0){
+        error.PercentAvgTranslationError()+= (trans_error.norm() /
+                                              error.DistanceTraveled());
+      }
+
       index++;
     }
   }else{
-    std::cerr << "There are " << gt_poses.size() << " ground truth poses"
-              << " and " << values->size() << " optimized poses, cannot "
-              << "compare." << std::endl;
+    std::cerr << "No poses to compare." << std::endl;
+    return false;
   }
 
-  return error;
+  return true;
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -531,7 +608,7 @@ void Masseuse::Relax() {
 
   // Build the problem with the given pose graph
 
-  if(options.enable_prior_at_origin){
+  if(options.enable_prior_at_origin && !options.fix_first_pose){
     // Add a prior at the origin:
     Point3 p = origin.head<3>();
     Rot3 rot(origin[3], origin[4], origin[5]);
@@ -541,24 +618,17 @@ void Masseuse::Relax() {
     cov_vec << 1e-6, 1e-6, 1e-6, 1e-4, 1e-4, 1e-4;
     Eigen::MatrixXd m = cov_vec.asDiagonal();
 
+    Matrix sqrt_information_matrix = inverseSqrt(m);
+
     ceres::CostFunction* prior_cost_function =
         new ceres::AutoDiffCostFunction<PriorPoseCostFunctor<double>,
         Sophus::SE3::DoF,
         Sophus::SE3::num_parameters>
-        (new PriorPoseCostFunctor<double>(orig, m.inverse().sqrt()));
+        (new PriorPoseCostFunctor<double>(orig, sqrt_information_matrix));
 
     problem.AddResidualBlock(prior_cost_function, NULL,
                              values->begin()->second.data());
 
-    //    std::cerr << "Adding prior at: " << orig.rotationMatrix().eulerAngles
-    //                 (0,1,2).transpose() << " Trans: " <<
-    //                 orig.translation().transpose() << std::endl << " to pose " <<
-    //                 values->begin()->first << " : " <<
-    //                 values->begin()->second.rotationMatrix().eulerAngles
-    //                 (0,1,2).transpose() << " Trans: " <<
-    //                 values->begin()->second.translation().transpose() << std::endl;
-  }else{
-    std::cerr << "Not adding any prior at origin" << std::endl;
   }
 
   // Now add a binary constraint for all relative and loop closure constraints
@@ -567,75 +637,61 @@ void Masseuse::Relax() {
     Pose3& T_a = values->at(f.id1);
     Pose3& T_b = values->at(f.id2);
 
-    if(options.optimize_rotations){
-      // Full optimizaion over SE3
+    Matrix sqrt_information_matrix = inverseSqrt(f.cov);
 
-      if(options.enable_switchable_constraints && f.isLCC){
-        // Use switchable constraints to selectively disable bad LCC's
-        // during the optimization, see:
-        // 'Switchable Constraints for Robust Pose Graph SLAM'
-        ceres::CostFunction* binary_cost_function =
-            new ceres::AutoDiffCostFunction<SwitchableBinaryPoseCostFunctor
-            <double>, Sophus::SE3::DoF,
-            Sophus::SE3::num_parameters,
-            Sophus::SE3::num_parameters,
-            1>
-            (new SwitchableBinaryPoseCostFunctor<double>(f.rel_pose,
-                                                         f.cov.inverse().sqrt()));
+    if(options.enable_switchable_constraints && f.isLCC){
+      // Use switchable constraints to selectively disable bad LCC's
+      // during the optimization, see:
+      // 'Switchable Constraints for Robust Pose Graph SLAM'
+      ceres::CostFunction* binary_cost_function =
+          new ceres::AutoDiffCostFunction<SwitchableBinaryPoseCostFunctor
+          <double>, Sophus::SE3::DoF,
+          Sophus::SE3::num_parameters,
+          Sophus::SE3::num_parameters,
+          1>
+          (new SwitchableBinaryPoseCostFunctor<double>(f.rel_pose,
+                                                       sqrt_information_matrix));
 
-
-        HuberLoss* loss = new HuberLoss(options.huber_loss_delta);
-
-        problem.AddResidualBlock(binary_cost_function, loss,
-                                 T_a.data(),
-                                 T_b.data(),
-                                 &f.switch_variable);
-
-        // Constrain the switch variable to be between 0 and 1
-        problem.SetParameterLowerBound(&f.switch_variable, 0, 0.0);
-        problem.SetParameterUpperBound(&f.switch_variable, 0, 1.0);
-
-        // Add a prior to anchor the switch variable at its initial value
-        ceres::CostFunction* prior_cost_function =
-            new ceres::AutoDiffCostFunction<PriorCostFunctor<double>,
-            1, 1>(new PriorCostFunctor<double>(f.switch_variable,
-                                               options.switch_variable_prior_cov,
-                                               0));
-
-        problem.AddResidualBlock(prior_cost_function, NULL,
-                                 &f.switch_variable);
-
-      }else{
-
-        ceres::CostFunction* binary_cost_function =
-            new ceres::AutoDiffCostFunction<BinaryPoseCostFunctor
-            <double>, Sophus::SE3::DoF,
-            Sophus::SE3::num_parameters,
-            Sophus::SE3::num_parameters>
-            (new BinaryPoseCostFunctor<double>(f.rel_pose, f.cov.inverse().sqrt()));
-
-        HuberLoss* loss = new HuberLoss(options.huber_loss_delta);
-
-        problem.AddResidualBlock(binary_cost_function, loss,
-                                 T_a.data(),
-                                 T_b.data());
-      }
-    }else{
-      // don't optimize over rotations, just include the translation in the
-      // optimization
-
-      ceres::CostFunction* binary_trans_cost_function =
-          new ceres::AutoDiffCostFunction<BinaryTranslationCostFunctor
-          <double>, 3, 3, 3>
-          (new BinaryTranslationCostFunctor<double>(f.rel_pose.translation(),
-                                                    f.cov.inverse().sqrt()));
 
       HuberLoss* loss = new HuberLoss(options.huber_loss_delta);
 
-      problem.AddResidualBlock(binary_trans_cost_function, loss,
-                               T_a.translation().data(),
-                               T_b.translation().data());
+      problem.AddResidualBlock(binary_cost_function, loss,
+                               T_a.data(),
+                               T_b.data(),
+                               &f.switch_variable);
+
+      // Constrain the switch variable to be between 0 and 1
+      problem.SetParameterLowerBound(&f.switch_variable, 0, 0.0);
+      problem.SetParameterUpperBound(&f.switch_variable, 0, 1.0);
+
+      // Add a prior to anchor the switch variable at its initial value
+      ceres::CostFunction* prior_cost_function =
+          new ceres::AutoDiffCostFunction<PriorCostFunctor<double>,
+          1, 1>(new PriorCostFunctor<double>(f.switch_variable,
+                                             options.switch_variable_prior_cov,
+                                             0));
+
+      problem.AddResidualBlock(prior_cost_function, NULL,
+                               &f.switch_variable);
+
+    }else{
+
+      Matrix sqrt_information_matrix = inverseSqrt(f.cov);
+
+      ceres::CostFunction* binary_cost_function =
+          new ceres::AutoDiffCostFunction<BinaryPoseCostFunctor
+          <double>, Sophus::SE3::DoF,
+          Sophus::SE3::num_parameters,
+          Sophus::SE3::num_parameters>
+          (new BinaryPoseCostFunctor<double>(f.rel_pose, sqrt_information_matrix));
+
+      HuberLoss* loss = new HuberLoss(options.huber_loss_delta);
+
+      problem.AddResidualBlock(binary_cost_function, loss,
+                               T_a.data(),
+                               T_b.data());
     }
+
 
     if(options.enable_z_prior){
       // Add a prior on z so that it anchors the height to the initial value
@@ -658,6 +714,10 @@ void Masseuse::Relax() {
 
   }
 
+  if(options.fix_first_pose && problem.HasParameterBlock(values->begin()->second.data())){
+    problem.SetParameterBlockConstant(values->begin()->second.data());
+  }
+
   ceres::LocalParameterization* local_param =
       new ceres::AutoDiffLocalParameterization
       <Sophus::masseuse::AutoDiffLocalParamSE3, 7, 6>;
@@ -670,77 +730,86 @@ void Masseuse::Relax() {
   }
 
 
-
-  std::cout << "Optimizing the factor graph" << std::endl;
   ceres::Solver::Options ceres_options;
   ceres_options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
+  ceres_options.trust_region_strategy_type = ceres::LEVENBERG_MARQUARDT;
   ceres_options.minimizer_progress_to_stdout = options.print_minimizer_progress;
   ceres_options.max_num_iterations = options.num_iterations;
   ceres_options.update_state_every_iteration =
       options.update_state_every_iteration;
   ceres_options.check_gradients = options.check_gradients;
+  ceres_options.function_tolerance = options.function_tolearnce;
+  ceres_options.parameter_tolerance = options.parameter_tolerance;
+  ceres_options.gradient_tolerance = options.gradient_tolerance;
 
   if(options.print_error_statistics){
     std::cerr << "BEFORE RELAXATION:" << std::endl;
-    PrintErrorStatistics();
+    PrintErrorStatistics(*values);
     std::cerr << std::endl;
 
-    if(options.enable_switchable_constraints){
-      std::cerr << "switch variables BEFORE optimizing: " << std::endl;
-      for(const Factor& f : *graph){
-        if(f.isLCC){
-          fprintf(stderr, "%1.3f ",
-                  f.switch_variable);
-        }
-      }
-      std::cerr << std::endl;
-    }
+    //    if(options.enable_switchable_constraints){
+    //      std::cerr << "switch variables BEFORE optimizing: " << std::endl;
+    //      for(const Factor& f : *graph){
+    //        if(f.isLCC){
+    //          fprintf(stderr, "%1.3f ",
+    //                  f.switch_variable);
+    //        }
+    //      }
+    //      std::cerr << std::endl;
+    //    }
 
-    double initial_cost = 0.0;
-    std::vector<double> residuals(problem.NumResiduals());
-    problem.Evaluate(Problem::EvaluateOptions(), &initial_cost, &residuals
-                     , NULL, NULL);
+    //    double initial_cost = 0.0;
+    //    std::vector<double> residuals(problem.NumResiduals());
+    //    problem.Evaluate(Problem::EvaluateOptions(), &initial_cost, &residuals
+    //                     , NULL, NULL);
 
 
-    std::cerr << "num residual blocks: " << problem.NumResidualBlocks() <<
-                 std::endl;
-    std::cerr << "Cost BEFORE optimizing: " << initial_cost << std::endl;
-    //    Eigen::Map<Eigen::VectorXd> vec_residuals(residuals.data(), residuals.size());
-    //    std::cerr << "Residuals: " << vec_residuals << std::endl;
+    //    std::cerr << "num residual blocks: " << problem.NumResidualBlocks() <<
+    //                 std::endl;
+    //    std::cerr << "Cost BEFORE optimizing: " << initial_cost << std::endl;
 
   }
 
 
   ceres::Solver::Summary summary;
+
+  std::cerr << "Relaxing graph...." << std::endl;
+  double ceres_time = masseuse::Tic();
   ceres::Solve(ceres_options, &problem, &summary);
-  std::cerr << "Optimization done.\n\n";
+  ceres_time = masseuse::Toc(ceres_time);
+  fprintf(stderr, "Optimization finished in %fs \n",
+          ceres_time);
 
   if(options.print_full_report){
     std::cerr << summary.FullReport() << std::endl;
   }
 
+  if(options.print_brief_report){
+    std::cerr << summary.BriefReport() << std::endl;
+  }
+
 
   if(options.print_error_statistics){
-    std::cerr << "AFTER REALXATION:" << std::endl;
-    PrintErrorStatistics();
+    std::cerr << std::endl << "AFTER REALXATION:" << std::endl;
+    PrintErrorStatistics(*values);
 
-    if(options.enable_switchable_constraints){
-      std::cerr << "switch variables AFTER optimizing: " << std::endl;
-      for(const Factor& f : *graph){
-        if(f.isLCC){
-          fprintf(stderr, "%1.3f ",
-                  f.switch_variable);
-        }
-      }
-      std::cerr << std::endl;
-    }
+    //    if(options.enable_switchable_constraints){
+    //      std::cerr << "switch variables AFTER optimizing: " << std::endl;
+    //      for(const Factor& f : *graph){
+    //        if(f.isLCC){
+    //          fprintf(stderr, "%1.3f ",
+    //                  f.switch_variable);
+    //        }
+    //      }
+    //      std::cerr << std::endl;
+    //    }
 
-    double final_cost = 0.0;
-    std::vector<double> residuals(problem.NumResiduals());
-    problem.Evaluate(Problem::EvaluateOptions(), &final_cost, &residuals,
-                     NULL, NULL);
+    //    double final_cost = 0.0;
+    //    std::vector<double> residuals(problem.NumResiduals());
+    //    problem.Evaluate(Problem::EvaluateOptions(), &final_cost, &residuals,
+    //                     NULL, NULL);
 
-    std::cerr << "Cost AFTER optimizing: " << final_cost << std::endl;
+    //std::cerr << "Cost AFTER optimizing: " << final_cost << std::endl;
     //    Eigen::Map<Eigen::VectorXd> vec_residuals(residuals.data(), residuals.size());
     //    std::cerr << "Residuals: " << vec_residuals << std::endl;
 

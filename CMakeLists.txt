@@ -59,6 +59,7 @@ set( HEADERS
     ${INC_DIR}/LocalParameterizationSO3.h
     ${INC_DIR}/AutoDiffLocalParamSE3.h
     ${INC_DIR}/Utils.h
+    ${INC_DIR}/TicToc.h
     )
 
 set( SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src )
